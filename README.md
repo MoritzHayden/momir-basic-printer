@@ -7,6 +7,7 @@ Momir Basic Printer (MBP) is a set of Python scripts designed to run headless on
 - [About](#about)
 - [Hardware](#hardware)
 - [Installation](#installation)
+- [Momir Basic Rules](#momir-basic-rules)
 - [Disclaimer](#disclaimer)
 
 ## About
