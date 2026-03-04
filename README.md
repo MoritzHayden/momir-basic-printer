@@ -16,7 +16,7 @@ Downloads card data from the [Scryfall API](https://scryfall.com/docs/api) and p
 
 ## Hardware
 
-...
+- [Raspberry Pi 3 Model B+](https://www.raspberrypi.com/products/raspberry-pi-3-model-b-plus/)
 
 ## Installation
 
