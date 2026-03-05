@@ -20,7 +20,32 @@ Downloads card data from the [Scryfall API](https://scryfall.com/docs/api) and p
 
 ## Installation
 
-...
+1. Install Python 3 and pip on your Raspberry Pi.
+
+```shell
+sudo apt update
+sudo apt install python3 python3-pip
+```
+
+2. Clone this repository and navigate to the project directory.
+
+```shell
+git clone https://github.com/MoritzHayden/momir-basic-printer.git
+cd momir-basic-printer
+```
+
+3. Install the required Python packages.
+
+```shell
+python3 -m pip install -r requirements.txt
+```
+
+4. Configure the settings in [config.ini](config.ini) as needed.
+5. Run the main script.
+
+```shell
+python3 src/main.py
+```
 
 ## Momir Basic Rules
 
@@ -35,7 +60,7 @@ Each turn players discard a basic land to activate Momir Vig's ability and get a
 
 ## Disclaimer
 
-Neither this project nor its contributors are associated with Hasbro, Wizards of the Coast, or *Magic: The Gathering* in any way whatsoever.
+Neither this project nor its contributors are associated with Hasbro, Wizards of the Coast, or _Magic: The Gathering_ in any way whatsoever.
 
 <div align="center">
   <p>Copyright &copy; 2026 Hayden Moritz</p>
