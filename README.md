@@ -63,6 +63,7 @@ Downloads card data from the [Scryfall API](https://scryfall.com/docs/api), incl
 - [ELEGOO Double Sided PCB Boards](https://a.co/d/0dti0gKG)
 - [REXQualis Breadboards](https://a.co/d/08CaHxEp)
 - [Eventronic Polyolefin 3:1 Ratio Heat Shrink Tubing](https://a.co/d/0cmdWnoi)
+- [Adafruit T-Cobbler Plus GPIO Breakout](https://a.co/d/0fnKGt3A)
 
 ### Pinout
 
