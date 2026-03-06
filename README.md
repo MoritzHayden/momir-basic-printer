@@ -2,20 +2,46 @@
 
 Momir Basic Printer (MBP) is a set of Python scripts designed to run headless on a Raspberry Pi connected to a thermal receipt printer for playing the [Momir Basic](https://magic.wizards.com/en/formats/momir-basic) MTG format.
 
+> [!NOTE]
+> This project is a work in progress and is not yet fully functional. Please check back for updates as I continue to work on this project!
+
+## TODO
+
+- [ ] Finalize hardware components
+  - [ ] Momentary Push Button Switches (OBSF-30 or similar)
+  - [ ] Voltage Step-Down (LM2596 DC-DC Adjustable Buck Converter Module)
+  - [ ] Logic Level Shifter 4-Channel Bidirectional Logic Level Converter (Adafruit BSS138 or TXB0108)
+  - [ ] Mounting Hardware (M2.5 Brass Standoffs, Screws, and Nuts Assortment)
+- [ ] Update Scryfall refresh to only download new cards instead of re-downloading the entire database every time
+- [ ] Document configuration in README
+- [ ] Enhance CLI for better user experience and error handling
+- [ ] Add thermal printer integration
+- [ ] Add OLED display integration
+- [ ] Add rotary encoder and button input
+- [ ] Create pinout diagram
+
 ## Table of Contents
 
 - [About](#about)
+- [Examples](#examples)
 - [Hardware](#hardware)
   - [Components](#components)
   - [Pinout](#pinout)
 - [Installation](#installation)
+- [Configuration](#configuration)
 - [Service Management](#service-management)
 - [Momir Basic Rules](#momir-basic-rules)
 - [Disclaimer](#disclaimer)
 
 ## About
 
-Downloads card data from the [Scryfall API](https://scryfall.com/docs/api) and prints a random card on demand when a button is pressed. The card images are converted to monochrome and printed using a thermal receipt printer. The card name is also displayed on an OLED screen.
+Downloads card data from the [Scryfall API](https://scryfall.com/docs/api), including card art which is dithered to monochrome on-device, and prints a random card within a set CMC value on demand via thermal printer. All settings are configurable via [config.ini](src/config.ini), and the software can run as a background service on any Linux-based SBC with GPIO. The complete hardware setup is designed to be compact and portable, with all components housed in a waterproof case.
+
+## Examples
+
+| Physical Card                                           | Printed Card                                              |
+| ------------------------------------------------------- | --------------------------------------------------------- |
+| ![Physical Chrome Courier](img/chrome_courier_card.jpg) | ![Printed Chrome Courier](img/chrome_courier_receipt.jpg) |
 
 ## Hardware
 
@@ -33,10 +59,7 @@ Downloads card data from the [Scryfall API](https://scryfall.com/docs/api) and p
 - [SHNITPWR 60W Universal Power Supply](https://a.co/d/0bKNzwey)
 - [DaierTek DC Barrel Jack](https://a.co/d/093TzIyP)
 - [Gebildet 12mm Momemtary Push Button](https://a.co/d/0gaiNBBG)
-- TODO: Momentary Push Button Switches (OBSF-30 or similar)
-- TODO: Voltage Step-Down	(LM2596 DC-DC Adjustable Buck Converter Module)
-- TODO: Logic Level Shifter	4-Channel Bidirectional Logic Level Converter (Adafruit BSS138 or TXB0108)
-- TODO: Mounting Hardware	(M2.5 Brass Standoffs, Screws, and Nuts Assortment)
+- ...
 
 ### Pinout
 
@@ -64,7 +87,39 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
-_(Note: If you are running a minimal setup and explicitly require the service to run as root, you can bypass the safety check by running `sudo ./setup.sh --allow-root`)_
+> [!TIP]
+> If you are running a minimal setup and explicitly require the service to run as root, you can bypass the safety check by running: `sudo ./setup.sh --allow-root`
+
+## Configuration
+
+All configuration variables are stored in [src/config.ini](src/config.ini). Update the values in this file to match your specific hardware setup and preferences. After making changes to the configuration, restart the service for the changes to take effect.
+
+| **Section**  | **Variable**             | **Type** | **Description** |
+| ------------ | ------------------------ | -------- | --------------- |
+| `FILESYSTEM` | `cards_path`             | ...      | ...             |
+| `FILESYSTEM` | `art_path`               | ...      | ...             |
+| `FILESYSTEM` | `default_card_art_path`  | ...      | ...             |
+| `FILESYSTEM` | `access_rights`          | ...      | ...             |
+| `LOGGING`    | `log_level`              | ...      | ...             |
+| `LOGGING`    | `log_format`             | ...      | ...             |
+| `PRINTER`    | `paper_width_mm`         | ...      | ...             |
+| `PRINTER`    | `paper_width_chars`      | ...      | ...             |
+| `PRINTER`    | `card_art_enabled`       | ...      | ...             |
+| `PRINTER`    | `qr_code_enabled`        | ...      | ...             |
+| `PRINTER`    | `qr_code_size`           | ...      | ...             |
+| `PRINTER`    | `dpi`                    | ...      | ...             |
+| `PRINTER`    | `vendor_id`              | ...      | ...             |
+| `PRINTER`    | `product_id`             | ...      | ...             |
+| `SCRYFALL`   | `base_url`               | ...      | ...             |
+| `SCRYFALL`   | `bulk_data_endpoint`     | ...      | ...             |
+| `SCRYFALL`   | `header_accept`          | ...      | ...             |
+| `SCRYFALL`   | `header_user_agent`      | ...      | ...             |
+| `SCRYFALL`   | `header_accept_encoding` | ...      | ...             |
+| `SCRYFALL`   | `request_delay_seconds`  | ...      | ...             |
+| `SCRYFALL`   | `max_retries`            | ...      | ...             |
+| `SCRYFALL`   | `art_width_px`           | ...      | ...             |
+| `SCRYFALL`   | `excluded_sets`          | ...      | ...             |
+| `SCRYFALL`   | `excluded_layouts`       | ...      | ...             |
 
 ## Service Management
 

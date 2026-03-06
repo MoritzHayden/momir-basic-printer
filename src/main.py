@@ -19,10 +19,6 @@ printer = Printer(printer_config, filesystem_config)
 scryfall = Scryfall(scryfall_config, filesystem_config)
 
 
-def settings_loop():
-    # TODO: Implement
-    pass
-
 def print_loop():
     while True:
         try:
@@ -33,7 +29,6 @@ def print_loop():
             logger.debug(f"Fetched card with CMC: {cmc} - {card['name']}. Printing...")
             printer.print_card(card)
             logger.debug(f"Printed card with CMC: {cmc} - {card['name']}.")
-            # TODO: Get valid CMC range
             match cmc:
                 case 'b' | 'back':
                     logger.debug(f"Received back command. Returning to main menu...")
@@ -58,9 +53,6 @@ def main():
                     logger.info(f"CMC card counts:")
                     for cmc, count in metadata.get('cmc_card_count', {}).items():
                         logger.info(f"\tCMC {cmc}: {count} cards")
-                case 's' | 'settings':
-                    logger.debug("Received settings command.")
-                    settings_loop()
                 case 'r' | 'refresh':
                     logger.debug("Received refresh command. Refreshing card data...")
                     scryfall.refresh_card_data()
