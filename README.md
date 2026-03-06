@@ -47,7 +47,6 @@ Downloads card data from the [Scryfall API](https://scryfall.com/docs/api), incl
 - [Maikrt MC206H Thermal Printer](https://a.co/d/06qIKsng)
 - [PAPRMA 57mm x 30mm Thermal Paper](https://a.co/d/04u2Gb2j)
 - [MakerFocus 20200330-SD8V OLED Display](https://a.co/d/06Y7V5Uj)
-- [Assorted Jumper Wires](https://a.co/d/0evrCTOw)
 - [CASEMATIX Graded Card Case](https://a.co/d/0cv4oRv7)
 - [KY-040 Rotary Encoder Module](https://a.co/d/0hN4SBto)
 - [Twidec SPST KCD3-101 Rocker Switch](https://a.co/d/00npt3Dj)
@@ -58,6 +57,12 @@ Downloads card data from the [Scryfall API](https://scryfall.com/docs/api), incl
 - [KeeYees 4 Channel IIC I2C Logic Level Converter](https://a.co/d/0ecOK7n6)
 - [Gebildet E317 12mm Momentary Push Buttons](https://a.co/d/07jTpQPD)
 - [HELIFOUNER M2.5 Brass Assortment](https://a.co/d/0a2iHqBy)
+- [Assorted Jumper Wires](https://a.co/d/0evrCTOw)
+- [TUOFENG 22 AWG Insulated Stranded Wire](https://a.co/d/09Vqd8gC)
+- [Haerkn 18 AWG Stranded Electrical Wire](https://a.co/d/0aUYpeb8)
+- [ELEGOO Double Sided PCB Boards](https://a.co/d/0dti0gKG)
+- [REXQualis Breadboards](https://a.co/d/08CaHxEp)
+- [Eventronic Polyolefin 3:1 Ratio Heat Shrink Tubing](https://a.co/d/0cmdWnoi)
 
 ### Pinout
 
