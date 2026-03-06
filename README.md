@@ -7,11 +7,6 @@ Momir Basic Printer (MBP) is a set of Python scripts designed to run headless on
 
 ## TODO
 
-- [ ] Finalize hardware components
-  - [ ] Momentary Push Button Switches (OBSF-30 or similar)
-  - [ ] Voltage Step-Down (LM2596 DC-DC Adjustable Buck Converter Module)
-  - [ ] Logic Level Shifter 4-Channel Bidirectional Logic Level Converter (Adafruit BSS138 or TXB0108)
-  - [ ] Mounting Hardware (M2.5 Brass Standoffs, Screws, and Nuts Assortment)
 - [ ] Update Scryfall refresh to only download new cards instead of re-downloading the entire database every time
 - [ ] Document configuration in README
 - [ ] Enhance CLI for better user experience and error handling
@@ -49,8 +44,8 @@ Downloads card data from the [Scryfall API](https://scryfall.com/docs/api), incl
 
 - [Raspberry Pi 3 Model B+](https://www.raspberrypi.com/products/raspberry-pi-3-model-b-plus/)
 - [Raspberry Pi 3 Case](https://a.co/d/0bsgVSjd)
-- [Maikrt MC206H Thermal Receipt Printer](https://a.co/d/06qIKsng)
-- [BuyRegisterRolls 57mm x 30mm Thermal Receipt Paper](https://a.co/d/00LGsMJn)
+- [Maikrt MC206H Thermal Printer](https://a.co/d/06qIKsng)
+- [PAPRMA 57mm x 30mm Thermal Paper](https://a.co/d/04u2Gb2j)
 - [MakerFocus 20200330-SD8V OLED Display](https://a.co/d/06Y7V5Uj)
 - [Assorted Jumper Wires](https://a.co/d/0evrCTOw)
 - [CASEMATIX Graded Card Case](https://a.co/d/0cv4oRv7)
@@ -59,7 +54,10 @@ Downloads card data from the [Scryfall API](https://scryfall.com/docs/api), incl
 - [SHNITPWR 60W Universal Power Supply](https://a.co/d/0bKNzwey)
 - [DaierTek DC Barrel Jack](https://a.co/d/093TzIyP)
 - [Gebildet 12mm Momemtary Push Button](https://a.co/d/0gaiNBBG)
-- ...
+- [LM2596 Buck Converter](https://a.co/d/070NjEDp)
+- [KeeYees 4 Channel IIC I2C Logic Level Converter](https://a.co/d/0ecOK7n6)
+- [Gebildet E317 12mm Momentary Push Buttons](https://a.co/d/07jTpQPD)
+- [HELIFOUNER M2.5 Brass Assortment](https://a.co/d/0a2iHqBy)
 
 ### Pinout
 
