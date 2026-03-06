@@ -7,8 +7,9 @@ from escpos.printer import Network
 import logging
 logger = logging.getLogger(__name__)
 
+
 class Printer:
-    def __init__(self, printer_config, filesystem_config, logging_config):
+    def __init__(self, printer_config, filesystem_config):
         self.paper_width_mm = printer_config.getint('paper_width_mm')
         self.paper_width_chars = printer_config.getint('paper_width_chars')
         self.card_art_enabled = printer_config.getboolean('card_art_enabled')
@@ -21,8 +22,6 @@ class Printer:
         self.art_path = Path(sys.argv[0]).resolve().parent.parent / filesystem_config.get('art_path')
         self.default_card_art_path = Path(sys.argv[0]).resolve().parent.parent / filesystem_config.get('default_card_art_path')
         self.access_rights = int(filesystem_config.get('access_rights'), 0)
-        logging.basicConfig(level=logging_config.get('log_level').upper(),
-                            format=logging_config.get('log_format'))
 
     def clean_text(self, text):
         return (text.replace('—', '-')

@@ -1,20 +1,22 @@
 import configparser
 from pathlib import Path
-from printer import Printer
-from scryfall import Scryfall
-import logging
 import readline
+import logging
 config = configparser.ConfigParser()
 config.read(Path(__file__).resolve().with_name('config.ini'))
 filesystem_config = config['FILESYSTEM']
 logging_config = config['LOGGING']
 printer_config = config['PRINTER']
 scryfall_config = config['SCRYFALL']
-printer = Printer(printer_config, filesystem_config, logging_config)
-scryfall = Scryfall(scryfall_config, filesystem_config, logging_config)
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging_config.get('log_level').upper(),
-                    format=logging_config.get('log_format'))
+logging.basicConfig(
+    level=logging_config.get('log_level').upper(),
+    format=logging_config.get('log_format')
+)
+from printer import Printer
+from scryfall import Scryfall
+printer = Printer(printer_config, filesystem_config)
+scryfall = Scryfall(scryfall_config, filesystem_config)
 
 
 def settings_loop():
@@ -48,6 +50,14 @@ def main():
             logger.debug("Entered main menu. Awaiting command...")
             command = input("~/MBP/MAIN: ").strip().lower()
             match command:
+                case 'i' | 'info':
+                    logger.debug(f"Received info command.")
+                    metadata = scryfall.get_metadata()
+                    logger.info(f"Last updated at: {metadata.get('updated_at')}")
+                    logger.info(f"Total card count: {metadata.get('total_card_count')} cards")
+                    logger.info(f"CMC card counts:")
+                    for cmc, count in metadata.get('cmc_card_count', {}).items():
+                        logger.info(f"\tCMC {cmc}: {count} cards")
                 case 's' | 'settings':
                     logger.debug("Received settings command.")
                     settings_loop()

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class Scryfall:
-    def __init__(self, scryfall_config, filesystem_config, logging_config):
+    def __init__(self, scryfall_config, filesystem_config):
         self.base_url = scryfall_config.get('base_url')
         self.bulk_data_endpoint = scryfall_config.get('bulk_data_endpoint')
         self.header_accept = scryfall_config.get('header_accept')
@@ -30,8 +30,6 @@ class Scryfall:
         self.art_path = Path(sys.argv[0]).resolve().parent.parent / filesystem_config.get('art_path')
         self.default_card_art_path = Path(sys.argv[0]).resolve().parent.parent / filesystem_config.get('default_card_art_path')
         self.access_rights = int(filesystem_config.get('access_rights'), 0)
-        logging.basicConfig(level=logging_config.get('log_level').upper(),
-                            format=logging_config.get('log_format'))
 
     def get_valid_cmcs(self):
         logger.debug(f"Getting valid CMCs...")
@@ -199,6 +197,21 @@ class Scryfall:
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f)
         logger.debug(f"Generated metadata at {metadata_path}.")
+
+    def get_metadata(self):
+        metadata_path = os.path.join(self.cards_path, "metadata.json")
+        if os.path.exists(metadata_path):
+            with open(metadata_path, 'r') as f:
+                metadata = json.load(f)
+                logger.debug(f"Loaded metadata from {metadata_path}.")
+                return metadata
+        else:
+            logger.debug(f"Metadata file not found at {metadata_path}. Generating new metadata file...")
+            self.generate_metadata()
+            with open(metadata_path, 'r') as f:
+                metadata = json.load(f)
+                logger.debug(f"Generated and loaded metadata from {metadata_path}.")
+                return metadata
 
     def process_and_save_card(self, card):
         cmc = int(card.get('cmc', 0))
