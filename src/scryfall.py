@@ -186,11 +186,11 @@ class Scryfall:
             logger.warning(f"Error downloading {card_art_uri}: {response.status_code}. Max retries reached. Using default art.")
             shutil.copy(self.default_card_art_path, path)
 
-    def generate_metadata(self, bulk_metadata):
+    def generate_metadata(self, bulk_metadata=None):
         metadata_path = os.path.join(self.cards_path, "metadata.json")
         metadata = {
-            'updated_at': bulk_metadata.get('updated_at'),
-            'download_uri': bulk_metadata.get('download_uri'),
+            'updated_at': bulk_metadata.get('updated_at') if bulk_metadata else None,
+            'download_uri': bulk_metadata.get('download_uri') if bulk_metadata else None,
             'total_card_count': self.get_total_card_count(),
             'cmc_card_count': {str(cmc): self.get_card_count_by_cmc(cmc) for cmc in self.get_valid_cmcs()}
         }
