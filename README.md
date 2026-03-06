@@ -101,7 +101,7 @@ sudo systemctl stop momir-basic-printer.service
 
 Each turn players discard a basic land to activate Momir Vig's ability and get a random creature from throughout Magic's history!
 
-![Momir Vig, Simic Visionary](img/momir_vig.png)
+![Momir Vig, Simic Visionary](img/momir_vig.jpg)
 
 ## Disclaimer
 
