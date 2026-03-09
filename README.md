@@ -7,13 +7,11 @@ Momir Basic Printer (MBP) is a set of Python scripts designed to run headless on
 
 ## TODO
 
-- [x] Update Scryfall refresh to only download new cards instead of re-downloading the entire database every time
-- [ ] Document configuration in README
-- [ ] Enhance CLI for better user experience and error handling
-- [ ] Add thermal printer integration
-- [ ] Add OLED display integration
-- [ ] Add rotary encoder and button input
-- [ ] Create pinout diagram
+- [ ] Implement button input
+- [ ] Implement rotary encoder input
+- [ ] Implement OLED display output
+- [ ] Implement thermal printer integration
+- [ ] Add completed hardware photos to [README.md](README.md)
 
 ## Table of Contents
 
@@ -87,32 +85,35 @@ chmod +x setup.sh
 
 All configuration variables are stored in [src/config.ini](src/config.ini). Update the values in this file to match your specific hardware setup and preferences. After making changes to the configuration, restart the service for the changes to take effect.
 
-| **Section**  | **Variable**             | **Type** | **Description** |
-| ------------ | ------------------------ | -------- | --------------- |
-| `FILESYSTEM` | `cards_path`             | ...      | ...             |
-| `FILESYSTEM` | `art_path`               | ...      | ...             |
-| `FILESYSTEM` | `default_card_art_path`  | ...      | ...             |
-| `FILESYSTEM` | `access_rights`          | ...      | ...             |
-| `LOGGING`    | `log_level`              | ...      | ...             |
-| `LOGGING`    | `log_format`             | ...      | ...             |
-| `PRINTER`    | `paper_width_mm`         | ...      | ...             |
-| `PRINTER`    | `paper_width_chars`      | ...      | ...             |
-| `PRINTER`    | `card_art_enabled`       | ...      | ...             |
-| `PRINTER`    | `qr_code_enabled`        | ...      | ...             |
-| `PRINTER`    | `qr_code_size`           | ...      | ...             |
-| `PRINTER`    | `dpi`                    | ...      | ...             |
-| `PRINTER`    | `vendor_id`              | ...      | ...             |
-| `PRINTER`    | `product_id`             | ...      | ...             |
-| `SCRYFALL`   | `base_url`               | ...      | ...             |
-| `SCRYFALL`   | `bulk_data_endpoint`     | ...      | ...             |
-| `SCRYFALL`   | `header_accept`          | ...      | ...             |
-| `SCRYFALL`   | `header_user_agent`      | ...      | ...             |
-| `SCRYFALL`   | `header_accept_encoding` | ...      | ...             |
-| `SCRYFALL`   | `request_delay_seconds`  | ...      | ...             |
-| `SCRYFALL`   | `max_retries`            | ...      | ...             |
-| `SCRYFALL`   | `art_width_px`           | ...      | ...             |
-| `SCRYFALL`   | `excluded_sets`          | ...      | ...             |
-| `SCRYFALL`   | `excluded_layouts`       | ...      | ...             |
+| **Section**  | **Variable**             | **Type**  | **Description**                                                           |
+| ------------ | ------------------------ | --------- | ------------------------------------------------------------------------- |
+| `FILESYSTEM` | `cards_path`             | `string`  | Directory path where card JSON files are stored                           |
+| `FILESYSTEM` | `art_path`               | `string`  | Directory path where card artwork images are stored                       |
+| `FILESYSTEM` | `default_card_art_path`  | `string`  | File path to default placeholder image for cards without artwork          |
+| `FILESYSTEM` | `access_rights`          | `octal`   | File system permissions for created directories (octal notation)          |
+| `LOGGING`    | `log_level`              | `string`  | Logging verbosity level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`) |
+| `LOGGING`    | `log_format`             | `string`  | Format string for log messages                                            |
+| `LOGGING`    | `log_date_format`        | `string`  | Format string for timestamps in log messages                              |
+| `PRINTER`    | `paper_width_mm`         | `integer` | Physical width of thermal paper in millimeters                            |
+| `PRINTER`    | `paper_width_chars`      | `integer` | Maximum number of characters per line for text wrapping                   |
+| `PRINTER`    | `card_art_enabled`       | `boolean` | Whether to print card artwork images on receipts                          |
+| `PRINTER`    | `qr_code_enabled`        | `boolean` | Whether to print QR codes linking to Scryfall card details                |
+| `PRINTER`    | `qr_code_size`           | `integer` | Size of QR code in printer units (larger = bigger QR code)                |
+| `PRINTER`    | `dpi`                    | `integer` | Printer resolution in dots per inch for image rendering                   |
+| `PRINTER`    | `vendor_id`              | `hex`     | USB vendor ID for the thermal printer device                              |
+| `PRINTER`    | `product_id`             | `hex`     | USB product ID for the thermal printer device                             |
+| `PRINTER`    | `printer_profile`        | `string`  | ESC/POS printer profile name for compatibility                            |
+| `PRINTER`    | `printer_media_width_px` | `integer` | Media width in pixels for image processing and scaling                    |
+| `SCRYFALL`   | `base_url`               | `string`  | Base URL for Scryfall API requests                                        |
+| `SCRYFALL`   | `bulk_data_endpoint`     | `string`  | API endpoint path for bulk card data download                             |
+| `SCRYFALL`   | `header_accept`          | `string`  | HTTP Accept header value for API content negotiation                      |
+| `SCRYFALL`   | `header_user_agent`      | `string`  | HTTP User-Agent header identifying the client application                 |
+| `SCRYFALL`   | `header_accept_encoding` | `string`  | HTTP Accept-Encoding header for compression support                       |
+| `SCRYFALL`   | `request_delay_seconds`  | `float`   | Delay between consecutive API requests to respect rate limits             |
+| `SCRYFALL`   | `max_retries`            | `integer` | Maximum number of retry attempts for failed API requests                  |
+| `SCRYFALL`   | `art_width_px`           | `integer` | Target width in pixels for downloaded card artwork                        |
+| `SCRYFALL`   | `excluded_sets`          | `list`    | Comma-separated card sets to exclude (e.g., `funny`, `memorabilia`)       |
+| `SCRYFALL`   | `excluded_layouts`       | `list`    | Comma-separated card layouts to exclude (e.g., `token`, `emblem`)         |
 
 ## Service Management
 
