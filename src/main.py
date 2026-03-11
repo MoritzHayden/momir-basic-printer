@@ -205,10 +205,15 @@ class MomirApp:
     # ------------------------------------------------------------------
 
     def _on_rotate(self) -> None:
-        cmc = self._clamp_cmc(self._encoder_steps_to_cmc(self._encoder.steps))
-        clamped_steps = self._cmc_to_encoder_steps(cmc)
-        if self._encoder.steps != clamped_steps:
-            self._encoder.steps = clamped_steps
+        encoder_step_span = self._cmc_max - self._cmc_min
+        # Use modulo to wrap negative/overflow steps correctly
+        wrapped_steps = self._encoder.steps % encoder_step_span
+        cmc = self._encoder_steps_to_cmc(wrapped_steps)
+        
+        # Update encoder steps if they changed due to wrapping
+        if self._encoder.steps != wrapped_steps:
+            self._encoder.steps = wrapped_steps
+        
         self._cmc = cmc
         if self.display is not None:
             self.display.set_cmc(cmc)
