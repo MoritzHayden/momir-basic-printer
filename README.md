@@ -38,12 +38,12 @@ Downloads card data from the [Scryfall API](https://scryfall.com/docs/api), incl
 
 - [Raspberry Pi 3 Model B+](https://www.raspberrypi.com/products/raspberry-pi-3-model-b-plus/)
 - [Adafruit T-Cobbler Plus GPIO Breakout](https://a.co/d/0fnKGt3A)
+- [REXQualis Electronics Component Kit](https://a.co/d/0cdCxCCP)
 - [Maikrt MC206H Thermal Printer](https://a.co/d/06qIKsng)
 - [PAPRMA 57mm x 30mm Thermal Paper](https://a.co/d/04u2Gb2j)
 - [MakerFocus 20200330-SD8V OLED Display](https://a.co/d/06Y7V5Uj)
 - [KY-040 Rotary Encoder Module](https://a.co/d/0hN4SBto)
 - [Nilight 12V 20A SPST Rocker Toggle Switch](https://a.co/d/02VcvtcQ)
-- [EG STARTS 24mm Arcade Push Buttons](https://a.co/d/0jlW1BSk)
 - [SHNITPWR 60W Universal Power Supply](https://a.co/d/0bKNzwey)
 - [LM2596 Buck Converter](https://a.co/d/070NjEDp)
 - [KeeYees 4 Channel IIC I2C Logic Level Converter](https://a.co/d/0ecOK7n6)
