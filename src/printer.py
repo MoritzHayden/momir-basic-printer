@@ -1,11 +1,14 @@
 """Thermal printer interface for printing Magic: The Gathering cards."""
 
 import logging
+import json
 import textwrap
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from escpos.printer import Network
+import gpiozero
+from escpos.printer import Serial
 from PIL import Image
 
 logger = logging.getLogger('momir.printer')
@@ -18,32 +21,16 @@ class Printer:
     - Formatting card data for thermal printer output
     - Printing card images, text, and QR codes
     - Text cleaning and wrapping for proper display
+    - DTR-based hardware flow control on the serial thermal printer
     """
 
-    # Printer network constants
-    DEFAULT_PRINTER_HOST = "127.0.0.1"
-    DEFAULT_PRINTER_PORT = 9100
-    DEFAULT_PRINTER_PROFILE = "simple"
-
-    # Text formatting constants
-    MIN_TITLE_SPACING = 1
-    PARAGRAPH_SPACING = "\n\n"
-
-    # Character replacements for printer compatibility
-    TEXT_REPLACEMENTS = {
-        '\u2014': '-',  # em dash
-        '\u2013': '-',  # en dash
-        '\u2019': "'",  # right single quotation mark
-        '\u201c': '"',  # left double quotation mark
-        '\u201d': '"'   # right double quotation mark
-    }
-
-    def __init__(self, printer_config, filesystem_config) -> None:
+    def __init__(self, printer_config, filesystem_config, hardware_config=None) -> None:
         """Initialize printer with configuration.
 
         Args:
             printer_config: Configuration section for printer settings
             filesystem_config: Configuration section for filesystem paths
+            hardware_config: Optional configuration section for GPIO/serial settings
         """
         # Printer configuration
         self.paper_width_mm: int = printer_config.getint('paper_width_mm')
@@ -58,15 +45,40 @@ class Printer:
         self.vendor_id: int = int(printer_config.get('vendor_id'), 0)
         self.product_id: int = int(printer_config.get('product_id'), 0)
 
-        # Network configuration
-        self.printer_host: str = printer_config.get(
-            'printer_host', fallback=self.DEFAULT_PRINTER_HOST)
-        self.printer_port: int = printer_config.getint(
-            'printer_port', fallback=self.DEFAULT_PRINTER_PORT)
+        # Serial configuration (from [HARDWARE] or fallbacks)
+        if hardware_config is not None:
+            self.serial_port: str = hardware_config.get(
+                'serial_port', fallback='/dev/serial0')
+            self.serial_baud_rate: int = hardware_config.getint(
+                'serial_baud_rate', fallback=9600)
+            self._dtr_pin: int = hardware_config.getint(
+                'gpio_printer_dtr', fallback=17)
+            self._dtr_poll_interval: float = hardware_config.getfloat(
+                'dtr_poll_interval', fallback=0.05)
+        else:
+            self.serial_port = '/dev/serial0'
+            self.serial_baud_rate = 9600
+            self._dtr_pin = 17
+            self._dtr_poll_interval = 0.05
+
         self.printer_profile: str = printer_config.get(
-            'printer_profile', fallback=self.DEFAULT_PRINTER_PROFILE)
+            'printer_profile', fallback='simple')
         self.printer_media_width_px: Optional[int] = printer_config.getint(
             'printer_media_width_px', fallback=None)
+        self._min_title_spacing: int = printer_config.getint('min_title_spacing', fallback=1)
+        self._paragraph_spacing: str = printer_config.get(
+            'paragraph_spacing', fallback='\\n\\n').encode('utf-8').decode('unicode_escape')
+        text_replacements_json = printer_config.get(
+            'text_replacements_json',
+            fallback='{"\\u2014":"-","\\u2013":"-","\\u2019":"\'","\\u201c":"\\\"","\\u201d":"\\\""}',
+        )
+        try:
+            self._text_replacements: Dict[str, str] = json.loads(text_replacements_json)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid text_replacements_json in config: {exc}") from exc
+
+        # DTR monitoring: printer pulls HIGH when its buffer is full.
+        self._dtr_device = gpiozero.InputDevice(self._dtr_pin, pull_up=False)
 
         # Filesystem paths (use __file__ for reliability)
         base_path = Path(__file__).resolve().parent.parent
@@ -104,8 +116,8 @@ class Printer:
 
     def __repr__(self) -> str:
         """String representation for debugging."""
-        return (f"Printer(host='{self.printer_host}', "
-                f"port={self.printer_port}, "
+        return (f"Printer(serial='{self.serial_port}', "
+                f"baud={self.serial_baud_rate}, "
             f"profile='{self.printer_profile}', "
             f"paper_width_chars={self.paper_width_chars})")
 
@@ -122,23 +134,32 @@ class Printer:
             Cleaned text with replaced characters
         """
         cleaned = text
-        for old_char, new_char in self.TEXT_REPLACEMENTS.items():
+        for old_char, new_char in self._text_replacements.items():
             cleaned = cleaned.replace(old_char, new_char)
         return cleaned
 
-    def _get_printer_connection(self) -> Network:
-        """Create and return a printer network connection.
+    def _wait_for_dtr(self) -> None:
+        """Block until the printer's DTR pin indicates the buffer has space.
+
+        The thermal printer pulls DTR HIGH when its internal buffer is full.
+        This method busy-waits (with a sleep interval) until DTR drops LOW.
+        """
+        while self._dtr_device.is_active:
+            time.sleep(self._dtr_poll_interval)
+
+    def _get_printer_connection(self) -> Serial:
+        """Create and return a printer serial connection.
 
         Returns:
-            Network printer connection object
+            Serial printer connection object
 
         Raises:
             Exception: If connection to printer fails
         """
         try:
-            printer = Network(
-                self.printer_host,
-                port=self.printer_port,
+            printer = Serial(
+                devfile=self.serial_port,
+                baudrate=self.serial_baud_rate,
                 profile=self.printer_profile,
             )
 
@@ -152,10 +173,10 @@ class Printer:
             return printer
         except Exception as e:
             logger.error(
-                f"Failed to connect to printer at {self.printer_host}:{self.printer_port}: {e}")
+                f"Failed to connect to printer on {self.serial_port}: {e}")
             raise
 
-    def _get_printer_max_width_px(self, printer: Network) -> Optional[int]:
+    def _get_printer_max_width_px(self, printer: Serial) -> Optional[int]:
         """Read max printable image width (pixels) from the active printer profile.
 
         Args:
@@ -170,13 +191,14 @@ class Printer:
         except (KeyError, TypeError, ValueError):
             return None
 
-    def _print_card_art(self, printer: Network, card_art_path: Path) -> None:
+    def _print_card_art(self, printer: Serial, card_art_path: Path) -> None:
         """Print card art, resizing if needed to fit printer width.
 
         Args:
-            printer: Connected network printer instance
+            printer: Connected serial printer instance
             card_art_path: Path to card art image
         """
+        self._wait_for_dtr()
         max_width_px = self._get_printer_max_width_px(printer)
 
         if max_width_px is not None:
@@ -230,9 +252,10 @@ class Printer:
             printer = self._get_printer_connection()
 
             # NAME AND MANA COST
+            self._wait_for_dtr()
             printer.set(align='left', bold=True)
             title_line_spaces = max(
-                self.MIN_TITLE_SPACING,
+                self._min_title_spacing,
                 self.paper_width_chars - (len(card_name) + len(card_mana_cost))
             )
             title_line_padding = " " * title_line_spaces
@@ -253,10 +276,11 @@ class Printer:
             if card_oracle_text:
                 printer.set(align='left', bold=False)
                 for paragraph in card_oracle_text.split('\n'):
+                    self._wait_for_dtr()
                     if paragraph.strip():
                         wrapped = textwrap.fill(
                             paragraph, width=self.paper_width_chars)
-                        printer.text(wrapped + self.PARAGRAPH_SPACING)
+                        printer.text(wrapped + self._paragraph_spacing)
                     else:
                         printer.text("\n")
 
@@ -266,6 +290,7 @@ class Printer:
                 printer.text(f"{card_power} / {card_toughness}\n")
 
             # QR CODE
+            self._wait_for_dtr()
             printer.set(align='center', bold=False)
             if self.qr_code_enabled and card_scryfall_uri:
                 printer.qr(card_scryfall_uri, size=self.qr_code_size)
@@ -276,3 +301,7 @@ class Printer:
         except Exception as e:
             logger.error(f"Failed to print card {card_name}: {e}")
             raise
+
+    def cleanup(self) -> None:
+        """Release the DTR GPIO resource."""
+        self._dtr_device.close()

@@ -85,35 +85,71 @@ chmod +x setup.sh
 
 All configuration variables are stored in [src/config.ini](src/config.ini). Update the values in this file to match your specific hardware setup and preferences. After making changes to the configuration, restart the service for the changes to take effect.
 
-| **Section**  | **Variable**             | **Type**  | **Description**                                                           |
-| ------------ | ------------------------ | --------- | ------------------------------------------------------------------------- |
-| `FILESYSTEM` | `cards_path`             | `string`  | Directory path where card JSON files are stored                           |
-| `FILESYSTEM` | `art_path`               | `string`  | Directory path where card artwork images are stored                       |
-| `FILESYSTEM` | `default_card_art_path`  | `string`  | File path to default placeholder image for cards without artwork          |
-| `FILESYSTEM` | `access_rights`          | `octal`   | File system permissions for created directories (octal notation)          |
-| `LOGGING`    | `log_level`              | `string`  | Logging verbosity level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`) |
-| `LOGGING`    | `log_format`             | `string`  | Format string for log messages                                            |
-| `LOGGING`    | `log_date_format`        | `string`  | Format string for timestamps in log messages                              |
-| `PRINTER`    | `paper_width_mm`         | `integer` | Physical width of thermal paper in millimeters                            |
-| `PRINTER`    | `paper_width_chars`      | `integer` | Maximum number of characters per line for text wrapping                   |
-| `PRINTER`    | `card_art_enabled`       | `boolean` | Whether to print card artwork images on receipts                          |
-| `PRINTER`    | `qr_code_enabled`        | `boolean` | Whether to print QR codes linking to Scryfall card details                |
-| `PRINTER`    | `qr_code_size`           | `integer` | Size of QR code in printer units (larger = bigger QR code)                |
-| `PRINTER`    | `dpi`                    | `integer` | Printer resolution in dots per inch for image rendering                   |
-| `PRINTER`    | `vendor_id`              | `hex`     | USB vendor ID for the thermal printer device                              |
-| `PRINTER`    | `product_id`             | `hex`     | USB product ID for the thermal printer device                             |
-| `PRINTER`    | `printer_profile`        | `string`  | ESC/POS printer profile name for compatibility                            |
-| `PRINTER`    | `printer_media_width_px` | `integer` | Media width in pixels for image processing and scaling                    |
-| `SCRYFALL`   | `base_url`               | `string`  | Base URL for Scryfall API requests                                        |
-| `SCRYFALL`   | `bulk_data_endpoint`     | `string`  | API endpoint path for bulk card data download                             |
-| `SCRYFALL`   | `header_accept`          | `string`  | HTTP Accept header value for API content negotiation                      |
-| `SCRYFALL`   | `header_user_agent`      | `string`  | HTTP User-Agent header identifying the client application                 |
-| `SCRYFALL`   | `header_accept_encoding` | `string`  | HTTP Accept-Encoding header for compression support                       |
-| `SCRYFALL`   | `request_delay_seconds`  | `float`   | Delay between consecutive API requests to respect rate limits             |
-| `SCRYFALL`   | `max_retries`            | `integer` | Maximum number of retry attempts for failed API requests                  |
-| `SCRYFALL`   | `art_width_px`           | `integer` | Target width in pixels for downloaded card artwork                        |
-| `SCRYFALL`   | `excluded_sets`          | `list`    | Comma-separated card sets to exclude (e.g., `funny`, `memorabilia`)       |
-| `SCRYFALL`   | `excluded_layouts`       | `list`    | Comma-separated card layouts to exclude (e.g., `token`, `emblem`)         |
+| **Section**  | **Variable**                    | **Type**  | **Description**                                                           |
+| ------------ | ------------------------------- | --------- | ------------------------------------------------------------------------- |
+| `APP`        | `booting_status`                | `string`  | Status string shown while services initialize                             |
+| `APP`        | `ready_status`                  | `string`  | Status string shown when the appliance is idle/ready                      |
+| `APP`        | `refreshing_status`             | `string`  | Status string shown during initial data refresh                           |
+| `APP`        | `fetching_status`               | `string`  | Status string shown while selecting/fetching a card                       |
+| `APP`        | `printing_status`               | `string`  | Status string shown while sending output to printer                       |
+| `APP`        | `cancelled_status`              | `string`  | Status string shown when active work is cancelled                         |
+| `APP`        | `error_status`                  | `string`  | Status string shown when fetch/print fails                                |
+| `APP`        | `reset_status`                  | `string`  | Status string shown after long-press reset                                |
+| `APP`        | `services_unavailable_status`   | `string`  | Status string shown when printer/Scryfall services are unavailable        |
+| `APP`        | `no_cmc_status_template`        | `string`  | Template used when no card exists for selected CMC (supports `{cmc}`)     |
+| `APP`        | `shutdown_join_timeout_seconds` | `float`   | Max wait time for worker thread during shutdown                           |
+| `APP`        | `printed_status_name_max_len`   | `integer` | Maximum card-name length shown on status line after printing              |
+| `FILESYSTEM` | `cards_path`                    | `string`  | Directory path where card JSON files are stored                           |
+| `FILESYSTEM` | `art_path`                      | `string`  | Directory path where card artwork images are stored                       |
+| `FILESYSTEM` | `default_card_art_path`         | `string`  | File path to default placeholder image for cards without artwork          |
+| `FILESYSTEM` | `access_rights`                 | `octal`   | File system permissions for created directories (octal notation)          |
+| `HARDWARE`   | `serial_port`                   | `string`  | Serial device path for the thermal printer (e.g., `/dev/serial0`)         |
+| `HARDWARE`   | `serial_baud_rate`              | `integer` | Baud rate for the serial printer connection (e.g., `9600` or `19200`)     |
+| `HARDWARE`   | `gpio_encoder_clk`              | `integer` | BCM GPIO pin for rotary encoder CLK signal (default: `13`)                |
+| `HARDWARE`   | `gpio_encoder_dt`               | `integer` | BCM GPIO pin for rotary encoder DT signal (default: `6`)                  |
+| `HARDWARE`   | `gpio_encoder_sw`               | `integer` | BCM GPIO pin for rotary encoder push-button switch (default: `5`)         |
+| `HARDWARE`   | `gpio_printer_dtr`              | `integer` | BCM GPIO pin for printer DTR hardware flow control (default: `17`)        |
+| `HARDWARE`   | `i2c_address`                   | `hex`     | I2C hex address of the SSD1306 OLED display (default: `0x3C`)             |
+| `HARDWARE`   | `i2c_port`                      | `integer` | I2C bus port number (default: `1`)                                        |
+| `HARDWARE`   | `oled_width`                    | `integer` | OLED display width in pixels (default: `128`)                             |
+| `HARDWARE`   | `oled_height`                   | `integer` | OLED display height in pixels (default: `64`)                             |
+| `HARDWARE`   | `display_font_size_cmc`         | `integer` | Font size for the main CMC text on OLED                                   |
+| `HARDWARE`   | `display_font_size_status`      | `integer` | Font size for the status text on OLED                                     |
+| `HARDWARE`   | `display_status_y_offset`       | `integer` | Vertical Y offset (px) for status text region                             |
+| `HARDWARE`   | `display_status_default`        | `string`  | Default status text shown during display initialization                   |
+| `HARDWARE`   | `display_font_cmc_path`         | `string`  | Font file path used for CMC text rendering                                |
+| `HARDWARE`   | `display_font_status_path`      | `string`  | Font file path used for status text rendering                             |
+| `HARDWARE`   | `display_cmc_prefix`            | `string`  | Prefix label used before current CMC value (e.g., `CMC:`)                 |
+| `HARDWARE`   | `hold_time`                     | `float`   | Seconds the encoder button must be held for a long-press action           |
+| `HARDWARE`   | `cmc_min`                       | `integer` | Minimum selectable CMC value (default: `0`)                               |
+| `HARDWARE`   | `cmc_max`                       | `integer` | Maximum selectable CMC value (default: `16`)                              |
+| `HARDWARE`   | `dtr_poll_interval`             | `float`   | Seconds between DTR pin polls when printer buffer is full                 |
+| `LOGGING`    | `log_level`                     | `string`  | Logging verbosity level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`) |
+| `LOGGING`    | `log_format`                    | `string`  | Format string for log messages                                            |
+| `LOGGING`    | `log_date_format`               | `string`  | Format string for timestamps in log messages                              |
+| `PRINTER`    | `paper_width_mm`                | `integer` | Physical width of thermal paper in millimeters                            |
+| `PRINTER`    | `paper_width_chars`             | `integer` | Maximum number of characters per line for text wrapping                   |
+| `PRINTER`    | `card_art_enabled`              | `boolean` | Whether to print card artwork images on receipts                          |
+| `PRINTER`    | `qr_code_enabled`               | `boolean` | Whether to print QR codes linking to Scryfall card details                |
+| `PRINTER`    | `qr_code_size`                  | `integer` | Size of QR code in printer units (larger = bigger QR code)                |
+| `PRINTER`    | `dpi`                           | `integer` | Printer resolution in dots per inch for image rendering                   |
+| `PRINTER`    | `vendor_id`                     | `hex`     | USB vendor ID for the thermal printer device                              |
+| `PRINTER`    | `product_id`                    | `hex`     | USB product ID for the thermal printer device                             |
+| `PRINTER`    | `printer_profile`               | `string`  | ESC/POS printer profile name for compatibility                            |
+| `PRINTER`    | `printer_media_width_px`        | `integer` | Media width in pixels for image processing and scaling                    |
+| `PRINTER`    | `min_title_spacing`             | `integer` | Minimum spaces between card name and mana cost on title line              |
+| `PRINTER`    | `paragraph_spacing`             | `string`  | Escaped spacing appended after wrapped oracle text paragraphs             |
+| `PRINTER`    | `text_replacements_json`        | `json`    | Character replacement map for printer-safe text normalization             |
+| `SCRYFALL`   | `base_url`                      | `string`  | Base URL for Scryfall API requests                                        |
+| `SCRYFALL`   | `bulk_data_endpoint`            | `string`  | API endpoint path for bulk card data download                             |
+| `SCRYFALL`   | `header_accept`                 | `string`  | HTTP Accept header value for API content negotiation                      |
+| `SCRYFALL`   | `header_user_agent`             | `string`  | HTTP User-Agent header identifying the client application                 |
+| `SCRYFALL`   | `header_accept_encoding`        | `string`  | HTTP Accept-Encoding header for compression support                       |
+| `SCRYFALL`   | `request_delay_seconds`         | `float`   | Delay between consecutive API requests to respect rate limits             |
+| `SCRYFALL`   | `max_retries`                   | `integer` | Maximum number of retry attempts for failed API requests                  |
+| `SCRYFALL`   | `art_width_px`                  | `integer` | Target width in pixels for downloaded card artwork                        |
+| `SCRYFALL`   | `excluded_sets`                 | `list`    | Comma-separated card sets to exclude (e.g., `funny`, `memorabilia`)       |
+| `SCRYFALL`   | `excluded_layouts`              | `list`    | Comma-separated card layouts to exclude (e.g., `token`, `emblem`)         |
 
 ## Service Management
 

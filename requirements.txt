@@ -1,5 +1,8 @@
 python-escpos>=3.1
-escpos-python
 Pillow
 requests
 ijson
+gpiozero
+lgpio
+pyserial
+luma.oled
