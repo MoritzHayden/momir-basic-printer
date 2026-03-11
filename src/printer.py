@@ -305,12 +305,16 @@ class Printer:
         try:
             printer = self._get_printer_connection()
 
-            # Set the printer to code page 437 (standard ASCII) before sending
-            # any text.  Without this, python-escpos's MagicEncode may emit an
-            # ESC t command that switches the printer into a Chinese (GBK/GB2312)
-            # codepage, after which every subsequent byte is interpreted as part
-            # of a multi-byte Chinese character sequence.
-            printer.charcode('PC437')
+            # Prefer a Latin/ASCII codepage before sending text. Different
+            # escpos profiles expose different aliases, so try common names and
+            # do not fail the print if the profile does not support explicit
+            # codepage selection.
+            for codepage in ("CP437", "USA"):
+                try:
+                    printer.charcode(codepage)
+                    break
+                except Exception:
+                    continue
 
             # NAME AND MANA COST
             self._wait_for_dtr(cancel_event=cancel_event)
