@@ -73,6 +73,7 @@ class MomirApp:
         self._cmc_min: int = hardware_config.getint('cmc_min', fallback=0)
         self._cmc_max: int = hardware_config.getint('cmc_max', fallback=16)
         self._cmc: int = self._cmc_min
+        self._encoder_step_offset: int = self._cmc_min
 
         # Services (set up in initialize)
         self.printer: Optional[Any] = None
@@ -85,14 +86,25 @@ class MomirApp:
         enc_dt: int = hardware_config.getint('gpio_encoder_dt')
         enc_sw: int = hardware_config.getint('gpio_encoder_sw')
 
-        self._encoder = RotaryEncoder(
-            enc_clk,
-            enc_dt,
-            wrap=True,
-            min_steps=self._cmc_min,
-            max_steps=self._cmc_max,
-        )
-        self._encoder.steps = self._cmc_min
+        encoder_step_span = self._cmc_max - self._cmc_min
+        try:
+            # gpiozero <= 1.x supports min_steps/max_steps.
+            self._encoder = RotaryEncoder(
+                enc_clk,
+                enc_dt,
+                wrap=True,
+                min_steps=self._cmc_min,
+                max_steps=self._cmc_max,
+            )
+        except TypeError:
+            # gpiozero >= 2.x removed min_steps; map steps via offset.
+            self._encoder = RotaryEncoder(
+                enc_clk,
+                enc_dt,
+                wrap=True,
+                max_steps=encoder_step_span,
+            )
+        self._encoder.steps = self._cmc_to_encoder_steps(self._cmc_min)
 
         self._button = Button(enc_sw, pull_up=True, hold_time=hold_time)
         self._held_fired = False
@@ -114,6 +126,12 @@ class MomirApp:
             'shutdown_join_timeout_seconds', fallback=5)
         self._printed_status_name_max_len: int = app_config.getint(
             'printed_status_name_max_len', fallback=20)
+
+    def _cmc_to_encoder_steps(self, cmc: int) -> int:
+        return cmc - self._encoder_step_offset
+
+    def _encoder_steps_to_cmc(self, steps: int) -> int:
+        return steps + self._encoder_step_offset
 
     # ------------------------------------------------------------------
     # Initialization
@@ -182,7 +200,7 @@ class MomirApp:
     # ------------------------------------------------------------------
 
     def _on_rotate(self) -> None:
-        cmc = self._encoder.steps
+        cmc = self._encoder_steps_to_cmc(self._encoder.steps)
         self._cmc = cmc
         if self.display is not None:
             self.display.set_cmc(cmc)
@@ -225,7 +243,7 @@ class MomirApp:
             self._cancel_event.set()
         else:
             self._cmc = self._cmc_min
-            self._encoder.steps = self._cmc_min
+            self._encoder.steps = self._cmc_to_encoder_steps(self._cmc_min)
             if self.display is not None:
                 self.display.update(cmc=self._cmc, status=self._reset_status)
 
