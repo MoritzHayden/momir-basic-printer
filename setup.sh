@@ -19,7 +19,7 @@ echo "========================================"
 echo "Updating system and checking packages..."
 echo "========================================"
 sudo apt-get update -qq
-sudo apt-get install -y python3-venv python3-pip libjpeg-dev zlib1g-dev i2c-tools fonts-dejavu
+sudo apt-get install -y python3-venv python3-pip libjpeg-dev zlib1g-dev i2c-tools fonts-dejavu swig liblgpio-dev
 
 echo "========================================"
 echo "Configuring Raspberry Pi Hardware..."
