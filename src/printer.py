@@ -272,10 +272,10 @@ class Printer:
         Prints formatted card information including:
         - Name and mana cost
         - Card artwork (if enabled)
+        - QR code linking to Scryfall page (if enabled)
         - Type line
         - Oracle text (wrapped to paper width)
         - Power/toughness (for creatures)
-        - QR code linking to Scryfall page (if enabled)
 
         Args:
             card: Card data dictionary containing card information
@@ -317,8 +317,15 @@ class Printer:
                 self._print_card_art(printer, card_art_path, cancel_event=cancel_event)
                 printer.text("\n")
 
+            # QR CODE
+            self._wait_for_dtr(cancel_event=cancel_event)
+            printer.set(align='center', bold=False)
+            if self.qr_code_enabled and card_scryfall_uri:
+                printer.qr(card_scryfall_uri, size=self.qr_code_size)
+
             # TYPE LINE
             if card_type_line:
+                self._wait_for_dtr(cancel_event=cancel_event)
                 printer.text(f"\n{card_type_line}\n\n")
 
             # ORACLE TEXT
@@ -335,14 +342,9 @@ class Printer:
 
             # POWER / TOUGHNESS
             if card_power is not None and card_toughness is not None:
+                self._wait_for_dtr(cancel_event=cancel_event)
                 printer.set(align='right', bold=False)
                 printer.text(f"{card_power} / {card_toughness}\n")
-
-            # QR CODE
-            self._wait_for_dtr(cancel_event=cancel_event)
-            printer.set(align='center', bold=False)
-            if self.qr_code_enabled and card_scryfall_uri:
-                printer.qr(card_scryfall_uri, size=self.qr_code_size)
 
             printer.cut()
             logger.info(f"Successfully printed: {card_name}")
