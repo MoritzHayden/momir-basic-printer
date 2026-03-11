@@ -150,6 +150,11 @@ class Printer:
         cleaned = text
         for old_char, new_char in self._text_replacements.items():
             cleaned = cleaned.replace(old_char, new_char)
+        # Encode to CP437 (standard ASCII/IBM code page) so that python-escpos's
+        # MagicEncode never needs to switch to a non-Latin codepage (e.g. GBK).
+        # Characters outside CP437 are replaced with '?' rather than triggering
+        # a codepage switch that would corrupt the entire subsequent print stream.
+        cleaned = cleaned.encode('cp437', errors='replace').decode('cp437')
         return cleaned
 
     def _is_dtr_busy(self) -> bool:
@@ -299,6 +304,13 @@ class Printer:
 
         try:
             printer = self._get_printer_connection()
+
+            # Set the printer to code page 437 (standard ASCII) before sending
+            # any text.  Without this, python-escpos's MagicEncode may emit an
+            # ESC t command that switches the printer into a Chinese (GBK/GB2312)
+            # codepage, after which every subsequent byte is interpreted as part
+            # of a multi-byte Chinese character sequence.
+            printer.charcode('PC437')
 
             # NAME AND MANA COST
             self._wait_for_dtr(cancel_event=cancel_event)

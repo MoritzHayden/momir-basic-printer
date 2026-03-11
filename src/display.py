@@ -148,33 +148,33 @@ class DisplayManager:
             cmc = self._cmc
             status = self._status
 
-        img = Image.new("1", (self.width, self.height), 0)
-        draw = ImageDraw.Draw(img)
+            img = Image.new("1", (self.width, self.height), 0)
+            draw = ImageDraw.Draw(img)
 
-        # --- CMC region (top) ---
-        prefix_text = self._cmc_prefix
-        value_text = str(cmc)
-        sep_y = self._status_y_offset - 4
+            # --- CMC region (top) ---
+            prefix_text = self._cmc_prefix
+            value_text = str(cmc)
+            sep_y = self._status_y_offset - 4
 
-        prefix_w, prefix_h = self._text_size(draw, prefix_text, self._font_cmc)
-        value_w, value_h = self._text_size(draw, value_text, self._font_cmc)
-        line_h = max(prefix_h, value_h)
-        top_region_height = max(1, sep_y - 1)
-        y = max(0, (top_region_height - line_h) // 2)
+            prefix_w, prefix_h = self._text_size(draw, prefix_text, self._font_cmc)
+            value_w, value_h = self._text_size(draw, value_text, self._font_cmc)
+            line_h = max(prefix_h, value_h)
+            top_region_height = max(1, sep_y - 1)
+            y = max(0, (top_region_height - line_h) // 2)
 
-        total_w = prefix_w + self._cmc_value_gap + value_w
-        available_w = self.width - (2 * self._padding_x)
-        x_start = self._padding_x + max(0, (available_w - total_w) // 2)
+            total_w = prefix_w + self._cmc_value_gap + value_w
+            available_w = self.width - (2 * self._padding_x)
+            x_start = self._padding_x + max(0, (available_w - total_w) // 2)
 
-        draw.text((x_start, y), prefix_text, fill=1, font=self._font_cmc)
-        draw.text((x_start + prefix_w + self._cmc_value_gap, y), value_text, fill=1, font=self._font_cmc)
+            draw.text((x_start, y), prefix_text, fill=1, font=self._font_cmc)
+            draw.text((x_start + prefix_w + self._cmc_value_gap, y), value_text, fill=1, font=self._font_cmc)
 
-        # --- Separator line ---
-        draw.line([(0, sep_y), (self.width, sep_y)], fill=1)
+            # --- Separator line ---
+            draw.line([(0, sep_y), (self.width, sep_y)], fill=1)
 
-        # --- Status region (bottom) ---
-        available_status_w = self.width - (2 * self._padding_x)
-        status_text = self._truncate_to_width(draw, status, self._font_status, available_status_w)
-        draw.text((self._padding_x, self._status_y_offset), status_text, fill=1, font=self._font_status)
+            # --- Status region (bottom) ---
+            available_status_w = self.width - (2 * self._padding_x)
+            status_text = self._truncate_to_width(draw, status, self._font_status, available_status_w)
+            draw.text((self._padding_x, self._status_y_offset), status_text, fill=1, font=self._font_status)
 
-        self._device.display(img)
+            self._device.display(img)

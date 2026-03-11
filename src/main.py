@@ -87,7 +87,9 @@ class MomirApp:
         enc_dt: int = hardware_config.getint('gpio_encoder_dt')
         enc_sw: int = hardware_config.getint('gpio_encoder_sw')
 
-        encoder_step_span = self._cmc_max - self._cmc_min
+        # +1 because the range is inclusive on both ends (cmc_min..cmc_max).
+        # e.g. cmc_min=0, cmc_max=16 → 17 distinct values (0,1,...,16).
+        encoder_step_span = self._cmc_max - self._cmc_min + 1
         try:
             # gpiozero <= 1.x supports min_steps/max_steps.
             self._encoder = RotaryEncoder(
@@ -205,7 +207,8 @@ class MomirApp:
     # ------------------------------------------------------------------
 
     def _on_rotate(self) -> None:
-        encoder_step_span = self._cmc_max - self._cmc_min
+        # +1 for inclusive range: cmc_min=0, cmc_max=16 → 17 distinct positions.
+        encoder_step_span = self._cmc_max - self._cmc_min + 1
         # Use modulo to wrap negative/overflow steps correctly
         wrapped_steps = self._encoder.steps % encoder_step_span
         cmc = self._encoder_steps_to_cmc(wrapped_steps)
