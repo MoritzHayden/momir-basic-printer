@@ -7,7 +7,8 @@ Momir Basic Printer (MBP) is a set of Python scripts designed to run headless on
 
 ## TODO
 
-- [ ] Add completed hardware photos to [README.md](README.md)
+- [ ] Add completed hardware diagram to [README](#diagram)
+- [ ] Add completed hardware photos to [README](#photos)
 
 ## Table of Contents
 
@@ -16,6 +17,7 @@ Momir Basic Printer (MBP) is a set of Python scripts designed to run headless on
 - [Hardware](#hardware)
   - [Components](#components)
   - [Diagram](#diagram)
+  - [Photos](#photos)
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Service Management](#service-management)
@@ -50,7 +52,11 @@ Downloads card data from the [Scryfall API](https://scryfall.com/docs/api), incl
 
 ### Diagram
 
-![Hardware Diagram](img/hardware_diagram.jpg)
+...
+
+### Photos
+
+...
 
 ## Installation
 
@@ -118,6 +124,8 @@ All configuration variables are stored in [src/config.ini](src/config.ini). Upda
 | `HARDWARE`   | `display_font_cmc_path`         | `string`  | Font file path used for CMC text rendering                                             |
 | `HARDWARE`   | `display_font_status_path`      | `string`  | Font file path used for status text rendering                                          |
 | `HARDWARE`   | `display_cmc_prefix`            | `string`  | Prefix label used before current CMC value (e.g., `CMC:`)                              |
+| `HARDWARE`   | `display_padding_x`             | `integer` | Left/right OLED padding in pixels for CMC and status text layout                       |
+| `HARDWARE`   | `display_cmc_value_gap`         | `integer` | Horizontal pixel gap between the CMC prefix label and numeric CMC value                |
 | `HARDWARE`   | `hold_time`                     | `float`   | Seconds the encoder button must be held for a long-press action                        |
 | `HARDWARE`   | `cmc_min`                       | `integer` | Minimum selectable CMC value (default: `0`)                                            |
 | `HARDWARE`   | `cmc_max`                       | `integer` | Maximum selectable CMC value (default: `16`)                                           |
