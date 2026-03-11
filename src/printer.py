@@ -2,6 +2,7 @@
 
 import logging
 import json
+import threading
 import textwrap
 import time
 from pathlib import Path
@@ -51,15 +52,26 @@ class Printer:
                 'serial_port', fallback='/dev/serial0')
             self.serial_baud_rate: int = hardware_config.getint(
                 'serial_baud_rate', fallback=9600)
+            self._dtr_enabled: bool = hardware_config.getboolean(
+                'printer_dtr_enabled', fallback=True)
             self._dtr_pin: int = hardware_config.getint(
                 'gpio_printer_dtr', fallback=17)
+            self._dtr_active_high: bool = hardware_config.getboolean(
+                'printer_dtr_active_high', fallback=True)
             self._dtr_poll_interval: float = hardware_config.getfloat(
                 'dtr_poll_interval', fallback=0.05)
+            self._dtr_timeout_seconds: float = hardware_config.getfloat(
+                'printer_dtr_timeout_seconds', fallback=3.0)
         else:
             self.serial_port = '/dev/serial0'
             self.serial_baud_rate = 9600
+            self._dtr_enabled = True
             self._dtr_pin = 17
+            self._dtr_active_high = True
             self._dtr_poll_interval = 0.05
+            self._dtr_timeout_seconds = 3.0
+
+        self._dtr_disabled_runtime = not self._dtr_enabled
 
         self.printer_profile: str = printer_config.get(
             'printer_profile', fallback='simple')
@@ -77,8 +89,10 @@ class Printer:
         except json.JSONDecodeError as exc:
             raise ValueError(f"Invalid text_replacements_json in config: {exc}") from exc
 
-        # DTR monitoring: printer pulls HIGH when its buffer is full.
-        self._dtr_device = gpiozero.InputDevice(self._dtr_pin, pull_up=False)
+        # DTR monitoring is optional because some printers leave the line floating.
+        self._dtr_device = None
+        if self._dtr_enabled:
+            self._dtr_device = gpiozero.InputDevice(self._dtr_pin, pull_up=False)
 
         # Filesystem paths (use __file__ for reliability)
         base_path = Path(__file__).resolve().parent.parent
@@ -138,13 +152,39 @@ class Printer:
             cleaned = cleaned.replace(old_char, new_char)
         return cleaned
 
-    def _wait_for_dtr(self) -> None:
+    def _is_dtr_busy(self) -> bool:
+        if self._dtr_device is None:
+            return False
+
+        level_is_high = bool(self._dtr_device.value)
+        return level_is_high if self._dtr_active_high else not level_is_high
+
+    def _wait_for_dtr(self, cancel_event: Optional[threading.Event] = None) -> None:
         """Block until the printer's DTR pin indicates the buffer has space.
 
         The thermal printer pulls DTR HIGH when its internal buffer is full.
         This method busy-waits (with a sleep interval) until DTR drops LOW.
         """
-        while self._dtr_device.is_active:
+        if self._dtr_disabled_runtime or self._dtr_device is None:
+            return
+
+        started_waiting_at = time.monotonic()
+        while self._is_dtr_busy():
+            if cancel_event is not None and cancel_event.is_set():
+                raise RuntimeError("Printing cancelled while waiting for DTR")
+
+            if self._dtr_timeout_seconds > 0:
+                elapsed = time.monotonic() - started_waiting_at
+                if elapsed >= self._dtr_timeout_seconds:
+                    self._dtr_disabled_runtime = True
+                    logger.warning(
+                        "Timed out waiting %.2fs for printer DTR on GPIO %s; "
+                        "disabling DTR flow control until restart.",
+                        elapsed,
+                        self._dtr_pin,
+                    )
+                    return
+
             time.sleep(self._dtr_poll_interval)
 
     def _get_printer_connection(self) -> Serial:
@@ -191,14 +231,19 @@ class Printer:
         except (KeyError, TypeError, ValueError):
             return None
 
-    def _print_card_art(self, printer: Serial, card_art_path: Path) -> None:
+    def _print_card_art(
+        self,
+        printer: Serial,
+        card_art_path: Path,
+        cancel_event: Optional[threading.Event] = None,
+    ) -> None:
         """Print card art, resizing if needed to fit printer width.
 
         Args:
             printer: Connected serial printer instance
             card_art_path: Path to card art image
         """
-        self._wait_for_dtr()
+        self._wait_for_dtr(cancel_event=cancel_event)
         max_width_px = self._get_printer_max_width_px(printer)
 
         if max_width_px is not None:
@@ -217,7 +262,11 @@ class Printer:
 
         printer.image(str(card_art_path))
 
-    def print_card(self, card: Dict[str, Any]) -> None:
+    def print_card(
+        self,
+        card: Dict[str, Any],
+        cancel_event: Optional[threading.Event] = None,
+    ) -> None:
         """Print a Magic: The Gathering card to the thermal printer.
 
         Prints formatted card information including:
@@ -252,7 +301,7 @@ class Printer:
             printer = self._get_printer_connection()
 
             # NAME AND MANA COST
-            self._wait_for_dtr()
+            self._wait_for_dtr(cancel_event=cancel_event)
             printer.set(align='left', bold=True)
             title_line_spaces = max(
                 self._min_title_spacing,
@@ -265,7 +314,7 @@ class Printer:
             printer.set(align='center', bold=False)
             if self.card_art_enabled and card_art_path and card_art_path.exists():
                 printer.text("\n")
-                self._print_card_art(printer, card_art_path)
+                self._print_card_art(printer, card_art_path, cancel_event=cancel_event)
                 printer.text("\n")
 
             # TYPE LINE
@@ -276,7 +325,7 @@ class Printer:
             if card_oracle_text:
                 printer.set(align='left', bold=False)
                 for paragraph in card_oracle_text.split('\n'):
-                    self._wait_for_dtr()
+                    self._wait_for_dtr(cancel_event=cancel_event)
                     if paragraph.strip():
                         wrapped = textwrap.fill(
                             paragraph, width=self.paper_width_chars)
@@ -290,7 +339,7 @@ class Printer:
                 printer.text(f"{card_power} / {card_toughness}\n")
 
             # QR CODE
-            self._wait_for_dtr()
+            self._wait_for_dtr(cancel_event=cancel_event)
             printer.set(align='center', bold=False)
             if self.qr_code_enabled and card_scryfall_uri:
                 printer.qr(card_scryfall_uri, size=self.qr_code_size)
@@ -304,4 +353,5 @@ class Printer:
 
     def cleanup(self) -> None:
         """Release the DTR GPIO resource."""
-        self._dtr_device.close()
+        if self._dtr_device is not None:
+            self._dtr_device.close()

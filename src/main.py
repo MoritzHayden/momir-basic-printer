@@ -255,13 +255,22 @@ class MomirApp:
             self._set_status(self._printing_status)
             logger.info(f"Printing: {card_name}")
 
-            self.printer.print_card(card)
+            self.printer.print_card(card, cancel_event=self._cancel_event)
+            if self._cancel_event.is_set():
+                self._set_status(self._cancelled_status)
+                logger.info(f"Printing cancelled: {card_name}")
+                return
+
             self._set_status(card_name[:self._printed_status_name_max_len])
             logger.info(f"Printed: {card_name}")
 
         except Exception as exc:
-            logger.error(f"Fetch/print error: {exc}")
-            self._set_status(self._error_status)
+            if self._cancel_event.is_set():
+                logger.info(f"Fetch/print cancelled: {exc}")
+                self._set_status(self._cancelled_status)
+            else:
+                logger.error(f"Fetch/print error: {exc}")
+                self._set_status(self._error_status)
         finally:
             self._set_state(AppState.IDLE)
 
