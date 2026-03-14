@@ -48,7 +48,11 @@ Downloads card data from the [Scryfall API](https://scryfall.com/docs/api), incl
 
 ### Photos
 
-...
+![Example Overview](img/example/example_overview.jpg)
+
+![Example IO](img/example/example_io.png)
+
+![Example Print](img/example/example_print.png)
 
 ## Installation
 
