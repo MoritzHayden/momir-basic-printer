@@ -2,14 +2,6 @@
 
 Momir Basic Printer (MBP) is a set of Python scripts designed to run headless on a Raspberry Pi connected to a thermal receipt printer for playing the [Momir Basic](https://magic.wizards.com/en/formats/momir-basic) MTG format.
 
-> [!NOTE]
-> This project is a work in progress and is not yet fully functional. Please check back for updates as I continue to work on this project!
-
-## TODO
-
-- [ ] Add completed hardware diagram to [README](#diagram)
-- [ ] Add completed hardware photos to [README](#photos)
-
 ## Table of Contents
 
 - [About](#about)
@@ -52,7 +44,7 @@ Downloads card data from the [Scryfall API](https://scryfall.com/docs/api), incl
 
 ### Diagram
 
-...
+![Hardware Diagram](fritzing/hardware_diagram.png)
 
 ### Photos
 
