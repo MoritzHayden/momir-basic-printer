@@ -5,20 +5,31 @@ Momir Basic Printer (MBP) is a set of Python scripts designed to run headless on
 ## Table of Contents
 
 - [About](#about)
+- [Momir Basic Rules](#momir-basic-rules)
 - [Examples](#examples)
 - [Hardware](#hardware)
   - [Components](#components)
   - [Diagram](#diagram)
   - [Photos](#photos)
 - [Installation](#installation)
-- [Configuration](#configuration)
 - [Service Management](#service-management)
-- [Momir Basic Rules](#momir-basic-rules)
+- [Configuration](#configuration)
 - [Disclaimer](#disclaimer)
 
 ## About
 
 Downloads card data from the [Scryfall API](https://scryfall.com/docs/api), including card art which is dithered to monochrome on-device, and prints a random card within a set CMC value on demand via thermal printer. All settings are configurable via [config.ini](src/config.ini), and the software can run as a background service on any Linux-based SBC with GPIO. The complete hardware setup is designed to be compact and portable, with all components housed in a waterproof case.
+
+## Momir Basic Rules
+
+- Number of Players: 2
+- Starting Life Total: 24
+- Game Duration: 10 minutes
+- Deck Size: 60+ basic lands
+
+Each turn players discard a basic land to activate Momir Vig's ability and get a random creature from throughout Magic's history!
+
+![Momir Vig, Simic Visionary](img/momir_vig.jpg)
 
 ## Examples
 
@@ -78,6 +89,32 @@ chmod +x setup.sh
 
 > [!TIP]
 > If you are running a minimal setup and explicitly require the service to run as root, you can bypass the safety check by running: `sudo ./setup.sh --allow-root`
+
+## Service Management
+
+View live logs and print statements:
+
+```shell
+sudo journalctl -u momir-basic-printer.service -f
+```
+
+Check the current status of the service:
+
+```shell
+sudo systemctl status momir-basic-printer.service
+```
+
+Restart the service (required after making code changes):
+
+```shell
+sudo systemctl restart momir-basic-printer.service
+```
+
+Stop the service:
+
+```shell
+sudo systemctl stop momir-basic-printer.service
+```
 
 ## Configuration
 
@@ -154,43 +191,6 @@ All configuration variables are stored in [src/config.ini](src/config.ini). Upda
 | `SCRYFALL`   | `art_width_px`                  | `integer` | Target width in pixels for downloaded card artwork                                     |
 | `SCRYFALL`   | `excluded_sets`                 | `list`    | Comma-separated card sets to exclude (e.g., `funny`, `memorabilia`)                    |
 | `SCRYFALL`   | `excluded_layouts`              | `list`    | Comma-separated card layouts to exclude (e.g., `token`, `emblem`)                      |
-
-## Service Management
-
-View live logs and print statements:
-
-```shell
-sudo journalctl -u momir-basic-printer.service -f
-```
-
-Check the current status of the service:
-
-```shell
-sudo systemctl status momir-basic-printer.service
-```
-
-Restart the service (required after making code changes):
-
-```shell
-sudo systemctl restart momir-basic-printer.service
-```
-
-Stop the service:
-
-```shell
-sudo systemctl stop momir-basic-printer.service
-```
-
-## Momir Basic Rules
-
-- Number of Players: 2
-- Starting Life Total: 24
-- Game Duration: 10 minutes
-- Deck Size: 60+ basic lands
-
-Each turn players discard a basic land to activate Momir Vig's ability and get a random creature from throughout Magic's history!
-
-![Momir Vig, Simic Visionary](img/momir_vig.jpg)
 
 ## Disclaimer
 
