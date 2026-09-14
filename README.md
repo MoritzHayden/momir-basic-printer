@@ -1,196 +1,250 @@
 # Momir Basic Printer (MBP)
 
-Momir Basic Printer (MBP) is a set of Python scripts designed to run headless on a Raspberry Pi connected to a thermal receipt printer for playing the [Momir Basic](https://magic.wizards.com/en/formats/momir-basic) MTG format.
+Momir Basic Printer (MBP) is a self-contained handheld device powered by an **ESP32-S3** that prints a random Magic: The Gathering creature card on a 58mm thermal receipt printer for playing the [Momir Basic](https://magic.wizards.com/en/formats/momir-basic) format.
 
-## Table of Contents
-
-- [About](#about)
-- [Momir Basic Rules](#momir-basic-rules)
-- [Examples](#examples)
-- [Hardware](#hardware)
-  - [Components](#components)
-  - [Diagram](#diagram)
-  - [Photos](#photos)
-- [Installation](#installation)
-- [Service Management](#service-management)
-- [Configuration](#configuration)
-- [Disclaimer](#disclaimer)
-
-## About
-
-Downloads card data from the [Scryfall API](https://scryfall.com/docs/api), including card art which is dithered to monochrome on-device, and prints a random card within a set CMC value on demand via thermal printer. All settings are configurable via [config.ini](src/config.ini), and the software can run as a background service on any Linux-based SBC with GPIO. The complete hardware setup is designed to be compact and portable, with all components housed in a waterproof case.
-
-## Momir Basic Rules
-
-- Number of Players: 2
-- Starting Life Total: 24
-- Game Duration: 10 minutes
-- Deck Size: 60+ basic lands
-
-Each turn players discard a basic land to activate Momir Vig's ability and get a random creature from throughout Magic's history!
+Rotate a knob to select a CMC, press the button, and a receipt-style card prints instantly — complete with a Scryfall QR code.
 
 ![Momir Vig, Simic Visionary](img/momir.jpg)
 
-## Examples
+## Table of Contents
 
-| Physical Card                                           | Printed Card                                              |
-| ------------------------------------------------------- | --------------------------------------------------------- |
-| ![Physical Chrome Courier](img/chrome_courier_card.jpg) | ![Printed Chrome Courier](img/chrome_courier_receipt.jpg) |
+- [Momir Basic Rules](#momir-basic-rules)
+- [How It Works](#how-it-works)
+- [Hardware](#hardware)
+  - [Components](#components)
+  - [Wiring](#wiring)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [1. Build the Card Database](#1-build-the-card-database)
+  - [2. Verify the Database](#2-verify-the-database)
+  - [3. Flash the Firmware](#3-flash-the-firmware)
+  - [4. Upload the Filesystem](#4-upload-the-filesystem)
+- [Project Structure](#project-structure)
+- [Receipt Layout](#receipt-layout)
+- [Firmware Overview](#firmware-overview)
+- [Disclaimer](#disclaimer)
+
+---
+
+## Momir Basic Rules
+
+- **Players:** 2
+- **Starting Life:** 24
+- **Deck:** 60+ basic lands only
+
+Each turn, discard a basic land to activate Momir Vig's ability and get a token copy of a random creature with that mana value from throughout Magic's history!
+
+---
+
+## How It Works
+
+1. **At boot**, the ESP32 mounts a LittleFS filesystem from flash, reads the pre-built `momir.bin` creature database into PSRAM, and shows `0` on the display.
+2. **Rotate** the EC11 encoder to select a CMC (0–16). The TM1637 display updates live.
+3. **Press** the encoder button. The display shows `PrnT`, a random creature at that CMC is picked from PSRAM in O(1) time, and the receipt is sent to the thermal printer over UART.
+4. **The receipt** prints the card name, mana cost, a centered Scryfall QR code, type line, oracle text (word-wrapped at 32 chars), and power/toughness.
+5. The display returns to showing the selected CMC. Ready for the next turn.
+
+---
 
 ## Hardware
 
 ### Components
 
-- [Raspberry Pi 3 Model B+](https://www.raspberrypi.com/products/raspberry-pi-3-model-b-plus/)
-- [Adafruit T-Cobbler Plus GPIO Breakout](https://a.co/d/0fnKGt3A)
-- [REXQualis Electronics Component Kit](https://a.co/d/0cdCxCCP)
-- [Maikrt MC206H Thermal Printer](https://a.co/d/06qIKsng)
-- [PAPRMA 57mm x 30mm Thermal Paper](https://a.co/d/04u2Gb2j)
-- [MakerFocus 20200330-SD8V OLED Display](https://a.co/d/06Y7V5Uj)
-- [KY-040 Rotary Encoder Module](https://a.co/d/0hN4SBto)
-- [Nilight 12V 20A SPST Rocker Toggle Switch](https://a.co/d/02VcvtcQ)
-- [SHNITPWR 60W Universal Power Supply](https://a.co/d/0bKNzwey)
-- [LM2596 Buck Converter](https://a.co/d/070NjEDp)
-- [KeeYees 4 Channel IIC I2C Logic Level Converter](https://a.co/d/0ecOK7n6)
+| Component | Purpose |
+|---|---|
+| [ESP32-S3 DevKitC-1 (N16R8)](https://www.espressif.com/en/products/devkits/esp32-s3-devkitc-1) | Main MCU — 16MB Flash, 8MB Octal PSRAM |
+| 58mm TTL Thermal Receipt Printer (e.g. [Maikrt MC206H](https://a.co/d/06qIKsng)) | Card output |
+| [PAPRMA 57mm Thermal Paper](https://a.co/d/04u2Gb2j) | Receipt paper |
+| [TM1637 4-Digit 7-Segment Display](https://a.co/d/0fnKGt3A) | CMC / status display |
+| [EC11 Rotary Encoder with push button](https://a.co/d/0hN4SBto) | CMC selection + print trigger |
 
-### Diagram
+### Wiring
 
-![Hardware Diagram](fritzing/hardware_diagram.png)
+| Signal | ESP32-S3 GPIO | Connected To |
+|---|---|---|
+| Printer TX (ESP32 → Printer RX) | GPIO 17 | Printer RX |
+| Printer RX (Printer TX → ESP32) | GPIO 18 | Printer TX |
+| TM1637 CLK | GPIO 7 | Display CLK |
+| TM1637 DIO | GPIO 8 | Display DIO |
+| Encoder CLK | GPIO 4 | EC11 CLK/A |
+| Encoder DT | GPIO 5 | EC11 DT/B |
+| Encoder SW (button) | GPIO 6 | EC11 SW |
 
-### Photos
+> [!NOTE]
+> All encoder pins use internal pull-ups (`INPUT_PULLUP`). The printer serial uses `SERIAL_8N1` at 9600 baud.
 
-![Example Overview](img/example/example_overview.jpg)
+---
 
-![Example IO](img/example/example_io.png)
+## Getting Started
 
-![Example Print](img/example/example_print.png)
+### Prerequisites
 
-## Installation
+- [PlatformIO](https://platformio.org/) (CLI or VS Code extension)
+- Python 3 + `curl` (for building the card database)
+- A USB connection to the ESP32-S3 DevKit
 
-1. Clone this repository and navigate to the project directory.
+### 1. Build the Card Database
 
-```shell
-git clone https://github.com/MoritzHayden/momir-basic-printer.git
-cd momir-basic-printer
-```
-
-2. Open [src/config.ini](src/config.ini) in a text editor and update the configuration variables to add your specific settings (like printer connection details, GPIO pins, and other hardware settings) before proceeding.
-
-```shell
-nano src/config.ini
-```
-
-3. Make the setup script executable and run it. This will automatically install dependencies and configure the systemd background service.
+Download the latest Scryfall oracle card data and pack all creature cards into the binary format used by the firmware. This step requires an internet connection and takes ~1–2 minutes.
 
 ```shell
-chmod +x setup.sh
-./setup.sh
+chmod +x tools/build_momir_bin.sh
+tools/build_momir_bin.sh
 ```
+
+This produces `data/momir.bin` — a compact indexed binary of every paper-legal Magic creature, grouped by CMC (0–16), totalling ~4.5 MB. A pre-built copy is already committed to the repository so this step is only needed when you want to refresh the card data.
 
 > [!TIP]
-> If you are running a minimal setup and explicitly require the service to run as root, you can bypass the safety check by running: `sudo ./setup.sh --allow-root`
+> The Scryfall bulk data is updated daily. Re-run this script periodically to include newly printed cards.
 
-## Service Management
+### 2. Verify the Database
 
-View live logs and print statements:
-
-```shell
-sudo journalctl -u momir-basic-printer.service -f
-```
-
-Check the current status of the service:
+Confirm the binary is well-formed and random lookups work correctly:
 
 ```shell
-sudo systemctl status momir-basic-printer.service
+python3 tools/verify_bin.py
 ```
 
-Restart the service (required after making code changes):
+Expected output shows card counts per CMC and a sample of 3 random card lookups, e.g.:
+
+```
+=== 1. Header Validation ===
+CMC  0:   35 cards  ...
+CMC  1: 1217 cards  ...
+...
+Total indexed creatures: 18097
+
+=== 2. Random O(1) Lookup Test ===
+[CMC 5 | Index 742 | Offset 1849302]
+Name:  Thragtusk {4}{G}
+Type:  Creature — Beast
+P/T:   5/3
+...
+```
+
+### 3. Flash the Firmware
+
+Build and upload the Arduino firmware to the ESP32-S3:
 
 ```shell
-sudo systemctl restart momir-basic-printer.service
+pio run --target upload
 ```
 
-Stop the service:
+Monitor the serial output (115200 baud) to confirm boot:
 
 ```shell
-sudo systemctl stop momir-basic-printer.service
+pio device monitor
 ```
 
-## Configuration
+You should see:
 
-All configuration variables are stored in [src/config.ini](src/config.ini). Update the values in this file to match your specific hardware setup and preferences. After making changes to the configuration, restart the service for the changes to take effect.
+```
+[MBP] Momir Basic Printer booting...
+[MBP] Printer initialized.
+Database loaded to PSRAM: 4531234 bytes.
+[MBP] Database ready. Entering main loop.
+```
 
-| **Section**  | **Variable**                    | **Type**  | **Description**                                                                        |
-| ------------ | ------------------------------- | --------- | -------------------------------------------------------------------------------------- |
-| `APP`        | `booting_status`                | `string`  | Status string shown while services initialize                                          |
-| `APP`        | `ready_status`                  | `string`  | Status string shown when the appliance is idle/ready                                   |
-| `APP`        | `refreshing_status`             | `string`  | Status string shown during initial data refresh                                        |
-| `APP`        | `fetching_status`               | `string`  | Status string shown while selecting/fetching a card                                    |
-| `APP`        | `printing_status`               | `string`  | Status string shown while sending output to printer                                    |
-| `APP`        | `cancelled_status`              | `string`  | Status string shown when active work is cancelled                                      |
-| `APP`        | `error_status`                  | `string`  | Status string shown when fetch/print fails                                             |
-| `APP`        | `reset_status`                  | `string`  | Status string shown after long-press reset                                             |
-| `APP`        | `done_status`                   | `string`  | Status string shown briefly after a successful print completes                         |
-| `APP`        | `done_status_seconds`           | `float`   | Duration in seconds to show `done_status` before returning to ready state              |
-| `APP`        | `services_unavailable_status`   | `string`  | Status string shown when printer/Scryfall services are unavailable                     |
-| `APP`        | `no_cmc_status_template`        | `string`  | Template used when no card exists for selected CMC (supports `{cmc}`)                  |
-| `APP`        | `shutdown_join_timeout_seconds` | `float`   | Max wait time for worker thread during shutdown                                        |
-| `FILESYSTEM` | `cards_path`                    | `string`  | Directory path where card JSON files are stored                                        |
-| `FILESYSTEM` | `art_path`                      | `string`  | Directory path where card artwork images are stored                                    |
-| `FILESYSTEM` | `default_card_art_path`         | `string`  | File path to default placeholder image for cards without artwork                       |
-| `FILESYSTEM` | `access_rights`                 | `octal`   | File system permissions for created directories (octal notation)                       |
-| `HARDWARE`   | `serial_port`                   | `string`  | Serial device path for the thermal printer (e.g., `/dev/serial0`)                      |
-| `HARDWARE`   | `serial_baud_rate`              | `integer` | Baud rate for the serial printer connection (e.g., `9600` or `19200`)                  |
-| `HARDWARE`   | `printer_dtr_enabled`           | `boolean` | Enables GPIO-based DTR flow control; disable if the printer does not wire DTR reliably |
-| `HARDWARE`   | `gpio_encoder_clk`              | `integer` | BCM GPIO pin for rotary encoder CLK signal (default: `13`)                             |
-| `HARDWARE`   | `gpio_encoder_dt`               | `integer` | BCM GPIO pin for rotary encoder DT signal (default: `6`)                               |
-| `HARDWARE`   | `gpio_encoder_sw`               | `integer` | BCM GPIO pin for rotary encoder push-button switch (default: `5`)                      |
-| `HARDWARE`   | `gpio_printer_dtr`              | `integer` | BCM GPIO pin for printer DTR hardware flow control (default: `17`)                     |
-| `HARDWARE`   | `printer_dtr_active_high`       | `boolean` | Whether the printer asserts DTR HIGH when its receive buffer is full                   |
-| `HARDWARE`   | `i2c_address`                   | `hex`     | I2C hex address of the SSD1306 OLED display (default: `0x3C`)                          |
-| `HARDWARE`   | `i2c_port`                      | `integer` | I2C bus port number (default: `1`)                                                     |
-| `HARDWARE`   | `oled_width`                    | `integer` | OLED display width in pixels (default: `128`)                                          |
-| `HARDWARE`   | `oled_height`                   | `integer` | OLED display height in pixels (default: `64`)                                          |
-| `HARDWARE`   | `display_font_size_cmc`         | `integer` | Font size for the main CMC text on OLED                                                |
-| `HARDWARE`   | `display_font_size_status`      | `integer` | Font size for the status text on OLED                                                  |
-| `HARDWARE`   | `display_status_y_offset`       | `integer` | Vertical Y offset (px) for status text region                                          |
-| `HARDWARE`   | `display_status_default`        | `string`  | Default status text shown during display initialization                                |
-| `HARDWARE`   | `display_font_cmc_path`         | `string`  | Font file path used for CMC text rendering                                             |
-| `HARDWARE`   | `display_font_status_path`      | `string`  | Font file path used for status text rendering                                          |
-| `HARDWARE`   | `display_cmc_prefix`            | `string`  | Prefix label used before current CMC value (e.g., `CMC:`)                              |
-| `HARDWARE`   | `display_padding_x`             | `integer` | Left/right OLED padding in pixels for CMC and status text layout                       |
-| `HARDWARE`   | `display_cmc_value_gap`         | `integer` | Horizontal pixel gap between the CMC prefix label and numeric CMC value                |
-| `HARDWARE`   | `hold_time`                     | `float`   | Seconds the encoder button must be held for a long-press action                        |
-| `HARDWARE`   | `cmc_min`                       | `integer` | Minimum selectable CMC value (default: `0`)                                            |
-| `HARDWARE`   | `cmc_max`                       | `integer` | Maximum selectable CMC value (default: `16`)                                           |
-| `HARDWARE`   | `dtr_poll_interval`             | `float`   | Seconds between DTR pin polls when printer buffer is full                              |
-| `HARDWARE`   | `printer_dtr_timeout_seconds`   | `float`   | Max time to wait on DTR before bypassing hardware flow control until restart           |
-| `LOGGING`    | `log_level`                     | `string`  | Logging verbosity level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`)              |
-| `LOGGING`    | `log_format`                    | `string`  | Format string for log messages                                                         |
-| `LOGGING`    | `log_date_format`               | `string`  | Format string for timestamps in log messages                                           |
-| `PRINTER`    | `paper_width_mm`                | `integer` | Physical width of thermal paper in millimeters                                         |
-| `PRINTER`    | `paper_width_chars`             | `integer` | Maximum number of characters per line for text wrapping                                |
-| `PRINTER`    | `card_art_enabled`              | `boolean` | Whether to print card artwork images on receipts                                       |
-| `PRINTER`    | `qr_code_enabled`               | `boolean` | Whether to print QR codes linking to Scryfall card details                             |
-| `PRINTER`    | `qr_code_size`                  | `integer` | Size of QR code in printer units (larger = bigger QR code)                             |
-| `PRINTER`    | `dpi`                           | `integer` | Printer resolution in dots per inch for image rendering                                |
-| `PRINTER`    | `vendor_id`                     | `hex`     | USB vendor ID for the thermal printer device                                           |
-| `PRINTER`    | `product_id`                    | `hex`     | USB product ID for the thermal printer device                                          |
-| `PRINTER`    | `printer_profile`               | `string`  | ESC/POS printer profile name for compatibility                                         |
-| `PRINTER`    | `printer_media_width_px`        | `integer` | Media width in pixels for image processing and scaling                                 |
-| `PRINTER`    | `min_title_spacing`             | `integer` | Minimum spaces between card name and mana cost on title line                           |
-| `PRINTER`    | `paragraph_spacing`             | `string`  | Escaped spacing appended after wrapped oracle text paragraphs                          |
-| `PRINTER`    | `text_replacements_json`        | `json`    | Character replacement map for printer-safe text normalization                          |
-| `SCRYFALL`   | `base_url`                      | `string`  | Base URL for Scryfall API requests                                                     |
-| `SCRYFALL`   | `bulk_data_endpoint`            | `string`  | API endpoint path for bulk card data download                                          |
-| `SCRYFALL`   | `header_accept`                 | `string`  | HTTP Accept header value for API content negotiation                                   |
-| `SCRYFALL`   | `header_user_agent`             | `string`  | HTTP User-Agent header identifying the client application                              |
-| `SCRYFALL`   | `header_accept_encoding`        | `string`  | HTTP Accept-Encoding header for compression support                                    |
-| `SCRYFALL`   | `request_delay_seconds`         | `float`   | Delay between consecutive API requests to respect rate limits                          |
-| `SCRYFALL`   | `max_retries`                   | `integer` | Maximum number of retry attempts for failed API requests                               |
-| `SCRYFALL`   | `art_width_px`                  | `integer` | Target width in pixels for downloaded card artwork                                     |
-| `SCRYFALL`   | `excluded_sets`                 | `list`    | Comma-separated card sets to exclude (e.g., `funny`, `memorabilia`)                    |
-| `SCRYFALL`   | `excluded_layouts`              | `list`    | Comma-separated card layouts to exclude (e.g., `token`, `emblem`)                      |
+### 4. Upload the Filesystem
+
+Flash the `data/` directory as a LittleFS image. This makes `momir.bin` available to the firmware at `/momir.bin`:
+
+```shell
+pio run --target uploadfs
+```
+
+> [!IMPORTANT]
+> Do steps 3 and 4 in any order, but **both must be done** before the device will function. If the database fails to load, the display will show `Err` and the device will halt.
+
+---
+
+## Project Structure
+
+```
+momir-basic-printer/
+├── data/
+│   └── momir.bin          # Pre-built creature database (LittleFS → /momir.bin)
+├── img/
+│   └── momir.jpg          # Docs image
+├── src/
+│   ├── main.cpp           # Application entry point (setup/loop)
+│   ├── CardDb.h           # LittleFS + PSRAM database loader and random lookup
+│   ├── Encoder.h          # EC11 rotary encoder driver (Gray-code + debounce)
+│   └── Printer.h          # Raw ESC/POS thermal printer driver
+├── tools/
+│   ├── build_momir_bin.sh # Download Scryfall data and build momir.bin
+│   └── verify_bin.py      # Verify momir.bin structure and test random lookups
+├── partitions_16mb.csv    # Flash partition table (3MB app + 13MB LittleFS)
+└── platformio.ini         # PlatformIO build config
+```
+
+---
+
+## Receipt Layout
+
+Each printed card follows this layout:
+
+```
+Card Name               {X}{Y}{Z}
+       [ QR CODE (Scryfall link) ]
+        Creature — Subtype
+Keyword ability.
+
+Oracle text wrapped cleanly at
+32 characters per line.
+
+                            P / T
+```
+
+- **Name + mana cost** are space-padded to fill the 32-character line width
+- **QR code** links to the card's Scryfall page (`https://scryfall.com/search?q=id%3A{uuid}`) and is centered using native ESC/POS `GS ( k` commands
+- **Type line** is centered
+- **Oracle text** is word-wrapped at 32 characters with blank lines between paragraphs; Unicode (em-dashes, smart quotes, bullets) is normalized to ASCII
+- **Power/Toughness** is right-aligned with spaces around the slash (e.g. `5 / 5`)
+- **3 blank lines** are fed after each card to clear the manual tear bar
+
+---
+
+## Firmware Overview
+
+### `src/CardDb.h`
+
+Mounts LittleFS, allocates the full `momir.bin` into 8MB Octal PSRAM via `ps_malloc`, and exposes `getRandomCard(uint8_t cmc, CardRecord& out)`. Card lookup is O(1): the binary header stores a per-CMC offset table, so selecting a random card requires exactly two seeks and one `memcpy`.
+
+### `src/Encoder.h`
+
+Reads the EC11 rotary encoder using a **4-state Gray-code state table** — reliable quadrature decoding with no debounce delays on the AB signal. The push-button uses a separate 50 ms timer-based debouncer. CMC is hard-clamped to `[0, 16]` via `constrain()`.
+
+### `src/Printer.h`
+
+Sends raw **ESC/POS** byte sequences over `HardwareSerial1`:
+
+| Command | Purpose |
+|---|---|
+| `ESC @` | Initialize printer |
+| `ESC E n` | Bold on/off |
+| `ESC a n` | Alignment (left / center / right) |
+| `GS ( k` | Native QR code (Model 2, Level M, module size 4) |
+| `ESC d n` | Feed n lines |
+
+### `src/main.cpp`
+
+Orchestrates everything: initializes hardware in `setup()`, then in `loop()` polls the encoder, updates the TM1637 display, and on button press fetches a card from `CardDb`, builds the Scryfall URL from the raw UUID bytes, shows `PrnT` on the display, calls `Printer::printCard()`, and returns to showing the CMC.
+
+### `platformio.ini`
+
+Key build flags for the N16R8 variant:
+
+```ini
+board_build.arduino.memory_type = qio_opi   ; Required for 8MB Octal PSRAM
+build_flags =
+    -DBOARD_HAS_PSRAM
+    -mfix-esp32-psram-cache-issue
+board_build.partitions = partitions_16mb.csv ; 16MB flash layout
+board_build.filesystem = littlefs
+```
+
+---
 
 ## Disclaimer
 
