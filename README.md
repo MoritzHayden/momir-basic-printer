@@ -29,7 +29,7 @@ Downloads card data from the [Scryfall API](https://scryfall.com/docs/api), incl
 
 Each turn players discard a basic land to activate Momir Vig's ability and get a random creature from throughout Magic's history!
 
-![Momir Vig, Simic Visionary](img/momir_vig.jpg)
+![Momir Vig, Simic Visionary](img/momir.jpg)
 
 ## Examples
 

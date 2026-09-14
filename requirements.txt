@@ -1,8 +1,0 @@
-python-escpos>=3.1
-Pillow
-requests
-ijson
-gpiozero
-lgpio
-pyserial
-luma.oled

@@ -1,3 +1,19 @@
+# ── PlatformIO ───────────────────────────────────────────────────────────────
+.pio/
+.pioenvs/
+.piolibdeps/
+*.elf
+*.map
+# data/momir.bin is intentionally tracked — it is the pre-built LittleFS dataset.
+# Regenerate it with: tools/build_momir_bin.sh
+# Intermediate download from build script:
+data/scryfall_oracle.jsonl
+
+# ── Arduino / ESP32 ──────────────────────────────────────────────────────────
+*.ino.elf
+*.ino.bin
+
+# ── Python ───────────────────────────────────────────────────────────────────
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
