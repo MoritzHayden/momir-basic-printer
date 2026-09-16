@@ -8,42 +8,55 @@
 // ── Pin Definitions ─────────────────────────────────────────────────────────
 
 // Thermal printer – HardwareSerial1
-static constexpr int PRINTER_TX_PIN = 17; // ESP32 TX → Printer RX
-static constexpr int PRINTER_RX_PIN = 18; // ESP32 RX ← Printer TX
+static constexpr int PRINTER_TX_PIN = 17;  // ESP32 TX → Printer RX
+static constexpr int PRINTER_RX_PIN = -1;  // Printer TX: UNCONNECTED — idles at 5V, would damage ESP32
 static constexpr uint32_t PRINTER_BAUD = 9600;
 
 // TM1637 4-digit display
-static constexpr int DISPLAY_CLK = 7;
-static constexpr int DISPLAY_DIO = 8;
+static constexpr int DISPLAY_CLK = 4;  // spec: CLK  = GPIO 4
+static constexpr int DISPLAY_DIO = 5;  // spec: DIO  = GPIO 5
 
-// EC11 Rotary Encoder
-static constexpr int ENC_CLK = 4;
-static constexpr int ENC_DT = 5;
-static constexpr int ENC_SW = 6;
+// KY-040 Rotary Encoder
+static constexpr int ENC_CLK = 6;  // spec: Channel A   = GPIO 6, INPUT_PULLUP
+static constexpr int ENC_DT  = 7;  // spec: Channel B   = GPIO 7, INPUT_PULLUP
+static constexpr int ENC_SW  = 8;  // spec: Push Button = GPIO 8, INPUT_PULLUP (active LOW)
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-static constexpr int CMC_MIN = 0;
-static constexpr int CMC_MAX = 16;
+// Compile-time upper bound for validCmcs[] array sizing only.
+// The actual navigable range is derived from the binary header at boot via
+// db.getCmcSlots() and is not constrained by this value at runtime.
+static constexpr uint8_t CMC_SLOTS_CAPACITY = 64;
+
+// Encoder placeholder range before setRange() is called after db loads.
+static constexpr int ENC_INIT_MIN = 0;
+static constexpr int ENC_INIT_MAX = CMC_SLOTS_CAPACITY - 1;
 
 // ── Global Objects ───────────────────────────────────────────────────────────
 
 TM1637Display display(DISPLAY_CLK, DISPLAY_DIO);
-RotaryEncoder encoder(ENC_CLK, ENC_DT, ENC_SW, CMC_MIN, CMC_MAX, /*debounceMs=*/50);
+RotaryEncoder encoder(ENC_CLK, ENC_DT, ENC_SW, ENC_INIT_MIN, ENC_INIT_MAX, /*debounceMs=*/50);
 ThermalPrinter printer;
 CardDb db;
 
+// Valid CMC navigation list — populated from the database at boot.
+// The encoder navigates indices 0..(validCmcCount-1); use validCmcs[idx] to
+// get the actual CMC value (skipping any CMC with 0 creatures).
+static uint8_t validCmcs[CMC_SLOTS_CAPACITY];
+static uint8_t validCmcCount = 0;
+
 // Application state
 static volatile bool isPrinting = false;
+
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
  * Format the raw 16-byte Scryfall UUID stored in a CardRecord into a
- * Scryfall search URL: https://scryfall.com/search?q=id%3Axxxxxxxx-xxxx-...
+ * direct Scryfall card page URL: https://scryfall.com/card/xxxxxxxx-xxxx-...
  *
  * @param uuid    Pointer to 16 raw UUID bytes (big-endian, as stored in momir.bin)
- * @param buf     Output buffer (must be at least 83 bytes)
+ * @param buf     Output buffer (must be at least 64 bytes)
  * @param bufLen  Size of buf
  */
 static void formatScryfallUrl(const uint8_t *uuid, char *buf, size_t bufLen)
@@ -58,23 +71,59 @@ static void formatScryfallUrl(const uint8_t *uuid, char *buf, size_t bufLen)
              uuid[8], uuid[9],
              uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
 
-    // Scryfall search by exact ID: https://scryfall.com/search?q=id%3A{uuid}
-    snprintf(buf, bufLen, "https://scryfall.com/search?q=id%%3A%s", uuidStr);
+    // Direct card page: https://scryfall.com/card/{uuid}
+    snprintf(buf, bufLen, "https://scryfall.com/card/%s", uuidStr);
 }
+
 
 // ── Display Helpers ──────────────────────────────────────────────────────────
 
 /**
- * Show the current CMC value on the TM1637 display.
- * Values 0–9 are right-aligned in the two rightmost digits.
- * Values 10–16 use both rightmost digits (e.g. " 10", " 16").
+ * Show the current CMC value on the 6-digit TM1637 display.
+ *
+ * Layout:  [ C ][ M ][ C ][   ][ ? ][ ? ]
+ *            0    1    2    3    4    5
+ *
+ * Position 3 is a blank spacer.
+ * Single-digit CMC (0–9):  position 4 blank, position 5 = digit.
+ * Two-digit CMC  (10–16):  position 4 = tens, position 5 = units.
+ *
+ * Segment encoding (TM1637Display standard):
+ *   bit 0 = a (top)          bit 4 = e (bottom-left)
+ *   bit 1 = b (top-right)    bit 5 = f (top-left)
+ *   bit 2 = c (bottom-right) bit 6 = g (middle)
+ *   bit 3 = d (bottom)
+ *
+ *   C = a+d+e+f        = 0x39
+ *   M = a+b+c+e+f      = 0x37  (outer frame: top + all four verticals)
  */
 void showCmc(int cmc)
 {
-    // Clear the left two digits first so they're dark before the number appears.
-    display.setSegments((const uint8_t[]){0x00, 0x00}, 2, 0);
-    // showNumberDec: no leading zeros, 2 digits wide, starting at position 2 (right pair).
-    display.showNumberDec(cmc, /*leading_zero=*/false, /*length=*/2, /*pos=*/2);
+    // Standard 7-segment digit codes 0–9.
+    static const uint8_t DIGITS[10] = {
+        0x3F, 0x06, 0x5B, 0x4F, 0x66,
+        0x6D, 0x7D, 0x07, 0x7F, 0x6F
+    };
+
+    uint8_t segs[6];
+    segs[0] = 0x39; // C
+    segs[1] = 0x37; // M
+    segs[2] = 0x39; // C
+    segs[3] = 0x00; // blank spacer
+
+    if (cmc < 10)
+    {
+        segs[4] = 0x00;           // blank
+        segs[5] = DIGITS[cmc];    // single digit at far right
+    }
+    else
+    {
+        segs[4] = DIGITS[cmc / 10]; // tens
+        segs[5] = DIGITS[cmc % 10]; // units
+    }
+
+    // Write all 6 positions in one call — no digit is left showing stale data.
+    display.setSegments(segs, 6, 0);
 }
 
 /**
@@ -116,9 +165,9 @@ void setup()
     // ── TM1637 Display ────────────────────────────────────────────────────
     display.setBrightness(7); // Maximum brightness (0–7)
     display.clear();
-    // Show "boot" indicator: all segments on during init.
-    const uint8_t boot[4] = {0x7F, 0x7F, 0x7F, 0x7F};
-    display.setSegments(boot);
+    // Show "boot" indicator: all 6 segments fully on during init.
+    const uint8_t boot[6] = {0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F};
+    display.setSegments(boot, 6, 0);
 
     // ── Rotary Encoder ────────────────────────────────────────────────────
     encoder.begin();
@@ -132,22 +181,42 @@ void setup()
     {
         Serial.println("[MBP] FATAL: Database load failed.");
         display.clear();
-        // Show "Err " on the display.
-        const uint8_t err[4] = {
-            0x79, // E
-            0x50, // r
-            0x50, // r
-            0x00  // blank
-        };
-        display.setSegments(err);
+        // Show "Err " across all 6 digits.
+        const uint8_t err[6] = {0x79, 0x50, 0x50, 0x00, 0x00, 0x00};
+        display.setSegments(err, 6, 0);
         while (true)
             delay(1000);
     }
 
+    // ── Build valid CMC list ───────────────────────────────────────────────
+    // Scan all CMC buckets; keep only those with at least one creature.
+    // The encoder will navigate indices into this list, so CMC 14 (and any
+    // other empty bucket) is simply never reachable from the knob.
+    for (uint8_t i = 0; i < db.getCmcSlots(); i++)
+    {
+        if (db.getCount(i) > 0)
+            validCmcs[validCmcCount++] = i;
+    }
+    if (validCmcCount == 0)
+    {
+        // Should never happen with a valid momir.bin.
+        Serial.println("[MBP] FATAL: No creatures found in database.");
+        const uint8_t err[6] = {0x79, 0x50, 0x50, 0x00, 0x00, 0x00};
+        display.setSegments(err, 6, 0);
+        while (true)
+            delay(1000);
+    }
+    Serial.printf("[MBP] Valid CMC buckets: %d  (range CMC %d – CMC %d)\n",
+                  validCmcCount, validCmcs[0], validCmcs[validCmcCount - 1]);
+
+    // Configure encoder to wrap through valid indices only.
+    encoder.setRange(0, validCmcCount - 1);
+
     Serial.println("[MBP] Database ready. Entering main loop.");
     display.clear();
-    showCmc(encoder.getValue());
+    showCmc(validCmcs[encoder.getValue()]);
 }
+
 
 // ── Main Loop ────────────────────────────────────────────────────────────────
 
@@ -157,12 +226,14 @@ void loop()
 
     if (!isPrinting)
     {
-        // Update display whenever the knob position might have changed.
-        static int lastCmc = -1;
-        int cmc = encoder.getValue();
-        if (cmc != lastCmc)
+        // encoder.getValue() returns an index into validCmcs[].
+        // Convert to the actual CMC for display and database lookup.
+        static int lastIdx = -1;
+        int idx = encoder.getValue();
+        if (idx != lastIdx)
         {
-            lastCmc = cmc;
+            lastIdx = idx;
+            int cmc = validCmcs[idx];
             showCmc(cmc);
             Serial.printf("[MBP] CMC selected: %d\n", cmc);
         }
@@ -170,7 +241,7 @@ void loop()
         // Check for a button press to trigger a print.
         if (encoder.wasPressed())
         {
-            int selectedCmc = encoder.getValue();
+            int selectedCmc = validCmcs[encoder.getValue()];
             Serial.printf("[MBP] Button pressed — printing CMC %d\n", selectedCmc);
 
             isPrinting = true;
@@ -180,9 +251,11 @@ void loop()
             CardRecord card;
             if (!db.getRandomCard((uint8_t)selectedCmc, card))
             {
-                Serial.printf("[MBP] No cards for CMC %d\n", selectedCmc);
-                // Flash display briefly to signal "no card".
-                display.clear();
+                // Safety net — should not be reachable because the encoder only
+                // navigates CMC values confirmed to have creatures at boot.
+                Serial.printf("[MBP] No cards for CMC %d (unexpected)\n", selectedCmc);
+                const uint8_t segs[6] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+                display.setSegments(segs, 6, 0);
                 delay(300);
                 showCmc(selectedCmc);
                 isPrinting = false;
@@ -200,7 +273,7 @@ void loop()
             Serial.printf("[MBP] Printing: %s\n", card.name);
 
             // Build Scryfall URL from the card UUID for the QR code.
-            // Buffer: "https://scryfall.com/search?q=id%3A" (35) + uuid (36) + '\0' = 72
+            // "https://scryfall.com/card/" (26) + uuid (36) + '\0' = 63 bytes; buf is 80.
             char scryfallUrl[80];
             formatScryfallUrl(card.uuid, scryfallUrl, sizeof(scryfallUrl));
             Serial.printf("[MBP] QR URL: %s\n", scryfallUrl);
@@ -221,7 +294,7 @@ void loop()
             Serial.printf("[MBP] Print complete: %s\n", card.name);
 
             isPrinting = false;
-            showCmc(encoder.getValue());
+            showCmc(validCmcs[encoder.getValue()]);
         }
     }
     else
@@ -230,3 +303,4 @@ void loop()
         animatePrinting();
     }
 }
+

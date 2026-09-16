@@ -8,8 +8,9 @@
  * over HardwareSerial using raw ESC/POS byte sequences.
  *
  * Serial wiring:
- *   ESP32-S3 TX (GPIO 17) → Printer RX
- *   ESP32-S3 RX (GPIO 18) → Printer TX
+ *   ESP32-S3 TX (GPIO 17) → Printer RX   (3.3V TX is safe for the printer)
+ *   Printer TX → DO NOT CONNECT           (printer TX is 5V logic; it will
+ *                                          damage the ESP32-S3 GPIO input)
  *
  * Paper width: 58mm / 384 dots → 32 characters at normal font (12-dot wide).
  *
@@ -34,16 +35,18 @@ public:
     static constexpr uint8_t MIN_TITLE_SPACING = 1;
 
     /**
-     * @param serial   HardwareSerial to use (e.g. Serial1)
-     * @param rxPin    ESP32 TX → Printer RX GPIO (default 17)
-     * @param txPin    ESP32 RX ← Printer TX GPIO (default 18)
-     * @param baud     Baud rate (9600 or 19200, default 9600)
+     * @param serial    HardwareSerial to use (e.g. Serial1)
+     * @param espTxPin  ESP32 GPIO driving serial TX → Printer RX (default 17)
+     * @param espRxPin  ESP32 GPIO for serial RX.  Pass -1 (default) to leave
+     *                  the RX pin unassigned — the printer's 5V TX line must
+     *                  NOT be connected to any ESP32-S3 GPIO.
+     * @param baud      Baud rate (9600 or 19200, default 9600)
      */
-    void begin(HardwareSerial &serial, int rxPin = 17, int txPin = 18,
+    void begin(HardwareSerial &serial, int espTxPin = 17, int espRxPin = -1,
                uint32_t baud = 9600)
     {
         _serial = &serial;
-        _serial->begin(baud, SERIAL_8N1, txPin, rxPin);
+        _serial->begin(baud, SERIAL_8N1, espRxPin, espTxPin);
         delay(100);
         _init();
     }
@@ -295,6 +298,8 @@ private:
         _serial->write((uint8_t)48);
 
         _serial->println(); // ensure line feed after QR bitmap
+        delay(500);         // allow print head to finish burning the QR symbol
+                            // before the next block of text is streamed
     }
 
     /** Print a 32-character dashed divider line. */
@@ -441,7 +446,62 @@ private:
             // ── 2-byte UTF-8 sequences ────────────────────────────────────
             if (c >= 0xC0 && c <= 0xDF && si + 1 < srcLen)
             {
-                // Skip unhandled 2-byte sequences.
+                // Map U+00C0–U+00FC (0xC3 second byte) to nearest ASCII.
+                // This preserves card names like Ætherling, Enragé, Dandân,
+                // Lim-Dûl's Vault, etc. instead of silently deleting letters.
+                if (c == 0xC3)
+                {
+                    unsigned char b = (unsigned char)src[si + 1];
+                    auto _emit = [&](char ch) {
+                        if (di < dstSize - 1) dst[di++] = ch;
+                    };
+                    // U+00C0–U+00C5  À-Å → A
+                    if (b >= 0x80 && b <= 0x85)  { _emit('A'); }
+                    // U+00C6         Æ   → AE
+                    else if (b == 0x86)           { _emit('A'); _emit('E'); }
+                    // U+00C7         Ç   → C
+                    else if (b == 0x87)           { _emit('C'); }
+                    // U+00C8–U+00CB  È-Ë → E
+                    else if (b >= 0x88 && b <= 0x8B) { _emit('E'); }
+                    // U+00CC–U+00CF  Ì-Ï → I
+                    else if (b >= 0x8C && b <= 0x8F) { _emit('I'); }
+                    // U+00D0         Ð   → D
+                    else if (b == 0x90)           { _emit('D'); }
+                    // U+00D1         Ñ   → N
+                    else if (b == 0x91)           { _emit('N'); }
+                    // U+00D2–U+00D6  Ò-Ö → O
+                    else if (b >= 0x92 && b <= 0x96) { _emit('O'); }
+                    // U+00D8         Ø   → O
+                    else if (b == 0x98)           { _emit('O'); }
+                    // U+00D9–U+00DC  Ù-Ü → U
+                    else if (b >= 0x99 && b <= 0x9C) { _emit('U'); }
+                    // U+00DD         Ý   → Y
+                    else if (b == 0x9D)           { _emit('Y'); }
+                    // U+00E0–U+00E5  à-å → a
+                    else if (b >= 0xA0 && b <= 0xA5) { _emit('a'); }
+                    // U+00E6         æ   → ae
+                    else if (b == 0xA6)           { _emit('a'); _emit('e'); }
+                    // U+00E7         ç   → c
+                    else if (b == 0xA7)           { _emit('c'); }
+                    // U+00E8–U+00EB  è-ë → e
+                    else if (b >= 0xA8 && b <= 0xAB) { _emit('e'); }
+                    // U+00EC–U+00EF  ì-ï → i
+                    else if (b >= 0xAC && b <= 0xAF) { _emit('i'); }
+                    // U+00F0         ð   → d
+                    else if (b == 0xB0)           { _emit('d'); }
+                    // U+00F1         ñ   → n
+                    else if (b == 0xB1)           { _emit('n'); }
+                    // U+00F2–U+00F6  ò-ö → o
+                    else if (b >= 0xB2 && b <= 0xB6) { _emit('o'); }
+                    // U+00F8         ø   → o
+                    else if (b == 0xB8)           { _emit('o'); }
+                    // U+00F9–U+00FC  ù-ü → u
+                    else if (b >= 0xB9 && b <= 0xBC) { _emit('u'); }
+                    // U+00FD / U+00FF  ý/ÿ → y
+                    else if (b == 0xBD || b == 0xBF) { _emit('y'); }
+                    // Anything else in C3 block: drop silently.
+                }
+                // All other 2-byte sequences (0xC0–0xC2, 0xC4–0xDF): drop.
                 si += 2;
                 continue;
             }

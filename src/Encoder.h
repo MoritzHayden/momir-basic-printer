@@ -4,9 +4,12 @@
 /**
  * RotaryEncoder
  *
- * Reads an EC11 incremental rotary encoder using a 4-state Gray-code state
+ * Reads a KY-040 incremental rotary encoder using a 4-state Gray-code state
  * table for clean, debounce-free step detection.  The integrated push-button
  * is software-debounced with a configurable hold-off window.
+ *
+ * The value wraps: turning CW past maxVal jumps to minVal, and turning CCW
+ * past minVal jumps to maxVal.
  *
  * Pins (all INPUT_PULLUP):
  *   clkPin  – CLK / A phase
@@ -15,7 +18,7 @@
  *
  * Usage:
  *   Call poll() from loop() as often as possible.
- *   Read getValue() for the current clamped integer value.
+ *   Read getValue() for the current wrapping integer value.
  *   Check wasPressed() once per loop() iteration to consume a button event.
  */
 class RotaryEncoder
@@ -25,15 +28,15 @@ public:
      * @param clkPin      GPIO for CLK phase
      * @param dtPin       GPIO for DT  phase
      * @param swPin       GPIO for push-button (active LOW with INPUT_PULLUP)
-     * @param minVal      Minimum clamped value (default 0)
-     * @param maxVal      Maximum clamped value (default 16)
+     * @param minVal      Minimum value before wrapping (default 0)
+     * @param maxVal      Maximum value before wrapping (default 16)
      * @param debouncems  Button debounce window in milliseconds (default 50)
      */
     RotaryEncoder(uint8_t clkPin, uint8_t dtPin, uint8_t swPin,
                   int minVal = 0, int maxVal = 16, uint32_t debouncems = 50)
         : _clkPin(clkPin), _dtPin(dtPin), _swPin(swPin),
           _minVal(minVal), _maxVal(maxVal), _debounceMs(debouncems),
-          _value(0), _lastEncoderState(0), _btnPressed(false),
+          _value(minVal), _lastEncoderState(0), _btnPressed(false),
           _lastBtnRaw(HIGH), _lastDebounceTime(0)
     {
     }
@@ -57,7 +60,7 @@ public:
         _pollButton();
     }
 
-    /** Current clamped CMC value. */
+    /** Current wrapping value in [minVal, maxVal]. */
     int getValue() const { return _value; }
 
     /**
@@ -72,6 +75,23 @@ public:
             return true;
         }
         return false;
+    }
+
+    /**
+     * Update the navigable range and reset the current value to minVal.
+     * Call after the card database has loaded so the range reflects only
+     * CMC values that have at least one creature.
+     *
+     * @param minVal  New minimum (inclusive)
+     * @param maxVal  New maximum (inclusive)
+     */
+    void setRange(int minVal, int maxVal)
+    {
+        _minVal  = minVal;
+        _maxVal  = maxVal;
+        _value   = minVal;
+        // Re-capture encoder state to avoid a phantom step on the next poll.
+        _lastEncoderState = _readAB();
     }
 
 private:
@@ -97,7 +117,10 @@ private:
 
         if (dir != 0)
         {
-            _value = constrain(_value + dir, _minVal, _maxVal);
+            int next = _value + dir;
+            if (next > _maxVal) next = _minVal;  // wrap CW: max → min
+            else if (next < _minVal) next = _maxVal; // wrap CCW: min → max
+            _value = next;
         }
     }
 
@@ -131,8 +154,8 @@ private:
     const uint8_t _clkPin;
     const uint8_t _dtPin;
     const uint8_t _swPin;
-    const int _minVal;
-    const int _maxVal;
+    int _minVal;                  // mutable — updated by setRange()
+    int _maxVal;                  // mutable — updated by setRange()
     const uint32_t _debounceMs;
 
     int _value;
@@ -143,6 +166,8 @@ private:
     int _stableBtnState = HIGH;
     uint32_t _lastDebounceTime;
 };
+
+
 
 // Gray-code transition table: index = (prev << 2) | curr
 // +1 = CW, -1 = CCW, 0 = invalid / no movement

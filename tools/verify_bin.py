@@ -8,7 +8,7 @@ from pathlib import Path
 # Resolve path relative to the repo root regardless of working directory.
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BIN_FILE = REPO_ROOT / "data" / "momir.bin"
-MAX_CMC = 16
+
 
 def read_exact(f, size):
     data = f.read(size)
@@ -18,18 +18,26 @@ def read_exact(f, size):
 
 def verify():
     with open(BIN_FILE, "rb") as f:
-        print("=== 1. Header Validation ===")
-        # Header is 17 entries * 6 bytes = 102 bytes
-        header_data = read_exact(f, (MAX_CMC + 1) * 6)
+        # Derive the number of CMC slots from the first header entry.
+        # The builder writes table_offset[0] = HEADER_SIZE = cmc_slots * 6.
+        first_entry = f.read(6)
+        if len(first_entry) < 6:
+            raise ValueError("File too small to contain a valid header.")
+        _, first_table_offset = struct.unpack_from("<HI", first_entry, 0)
+        cmc_slots = first_table_offset // 6  # sizeof(CmcHeaderEntry) = 6 (packed)
+        f.seek(0)  # rewind to re-read the full header
+
+        print(f"=== 1. Header Validation (CMC 0–{cmc_slots - 1}) ===")
+        header_data = read_exact(f, cmc_slots * 6)
         cmc_directory = []
-        
+
         total_cards = 0
-        for cmc in range(MAX_CMC + 1):
+        for cmc in range(cmc_slots):
             count, table_offset = struct.unpack_from("<HI", header_data, cmc * 6)
             cmc_directory.append((count, table_offset))
             total_cards += count
             print(f"CMC {cmc:2d}: {count:4d} cards (Offset Table at byte {table_offset})")
-            
+
         print(f"\nTotal indexed creatures: {total_cards}")
 
         print("\n=== 2. Random O(1) Lookup Test ===")

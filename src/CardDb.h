@@ -2,8 +2,6 @@
 #include <Arduino.h>
 #include <LittleFS.h>
 
-#define MAX_CMC 16
-
 struct __attribute__((packed)) CmcHeaderEntry
 {
     uint16_t card_count;
@@ -26,6 +24,7 @@ private:
     uint8_t *buffer = nullptr;
     size_t buffer_size = 0;
     const CmcHeaderEntry *cmc_directory = nullptr;
+    uint8_t _cmcSlots = 0; // number of CMC buckets in the binary (derived at load time)
     bool ready = false;
 
 public:
@@ -70,23 +69,37 @@ public:
             return false;
         }
 
-        // Header directory starts at byte 0 of the buffer
+        // Header directory starts at byte 0 of the buffer.
         cmc_directory = reinterpret_cast<const CmcHeaderEntry *>(buffer);
+
+        // Derive the number of CMC slots from the first entry's table_offset.
+        // The build script writes: table_offset[0] = HEADER_SIZE = cmcSlots * 6.
+        // sizeof(CmcHeaderEntry) is 6 bytes (packed: uint16 + uint32).
+        // This works for any MAX_CMC value the builder was compiled with.
+        _cmcSlots = (uint8_t)(cmc_directory[0].table_offset / sizeof(CmcHeaderEntry));
+
         ready = true;
-        Serial.printf("Database loaded to PSRAM: %u bytes.\n", buffer_size);
+        Serial.printf("Database loaded to PSRAM: %u bytes. CMC slots: 0–%d\n",
+                      buffer_size, _cmcSlots - 1);
         return true;
     }
 
+    /**
+     * Total number of CMC buckets in this binary (0 through getCmcSlots()-1).
+     * Derived from the file header at load time — not a hardcoded constant.
+     */
+    uint8_t getCmcSlots() const { return _cmcSlots; }
+
     uint16_t getCount(uint8_t cmc) const
     {
-        if (!ready || cmc > MAX_CMC)
+        if (!ready || cmc >= _cmcSlots)
             return 0;
         return cmc_directory[cmc].card_count;
     }
 
     bool getRandomCard(uint8_t cmc, CardRecord &out_card) const
     {
-        if (!ready || cmc > MAX_CMC)
+        if (!ready || cmc >= _cmcSlots)
             return false;
 
         uint16_t count = cmc_directory[cmc].card_count;
@@ -138,3 +151,4 @@ private:
         return src + len;
     }
 };
+

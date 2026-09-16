@@ -38,8 +38,8 @@ Each turn, discard a basic land to activate Momir Vig's ability and get a token 
 
 ## How It Works
 
-1. **At boot**, the ESP32 mounts a LittleFS filesystem from flash, reads the pre-built `momir.bin` creature database into PSRAM, and shows `0` on the display.
-2. **Rotate** the EC11 encoder to select a CMC (0–16). The TM1637 display updates live.
+1. **At boot**, the ESP32 mounts a LittleFS filesystem from flash, reads the pre-built `momir.bin` creature database into PSRAM, and shows all segments on while initializing, then `CMC  0` when ready.
+2. **Rotate** the KY-040 encoder to select a CMC (0–16). The TM1637 display updates live showing `CMC` on the left and the value on the right.
 3. **Press** the encoder button. The display shows `PrnT`, a random creature at that CMC is picked from PSRAM in O(1) time, and the receipt is sent to the thermal printer over UART.
 4. **The receipt** prints the card name, mana cost, a centered Scryfall QR code, type line, oracle text (word-wrapped at 32 chars), and power/toughness.
 5. The display returns to showing the selected CMC. Ready for the next turn.
@@ -52,26 +52,51 @@ Each turn, discard a basic land to activate Momir Vig's ability and get a token 
 
 | Component | Purpose |
 |---|---|
-| [ESP32-S3 DevKitC-1 (N16R8)](https://www.espressif.com/en/products/devkits/esp32-s3-devkitc-1) | Main MCU — 16MB Flash, 8MB Octal PSRAM |
-| 58mm TTL Thermal Receipt Printer (e.g. [Maikrt MC206H](https://a.co/d/06qIKsng)) | Card output |
+| [ESP32-S3 (N16R8)](https://a.co/d/0ieCbILF) | Main MCU — 16MB Flash, 8MB Octal PSRAM |
+| [Maikrt Micro Thermal Receipt Printer](https://a.co/d/0d352GD9) | Card output |
 | [PAPRMA 57mm Thermal Paper](https://a.co/d/04u2Gb2j) | Receipt paper |
-| [TM1637 4-Digit 7-Segment Display](https://a.co/d/0fnKGt3A) | CMC / status display |
-| [EC11 Rotary Encoder with push button](https://a.co/d/0hN4SBto) | CMC selection + print trigger |
+| [TM1637 6-Digit 7-Segment Display](https://a.co/d/0eRUYUOv) | CMC / status display |
+| [KY-040 Rotary Encoder](https://a.co/d/07Ihmg2c) | CMC selection + print trigger |
+| [Mini 360 Buck Converter](https://a.co/d/020VQw1T) | 7.8V → 5V for ESP32-S3 |
+| [2S 7.4V 3300mAh Li-ion Battery](https://a.co/d/07E4YvMv) | Power source |
+| [SPST Rocker Switch](https://a.co/d/004xDCoW) | Power toggle |
 
 ### Wiring
+
+#### Signal Connections (GPIO)
 
 | Signal | ESP32-S3 GPIO | Connected To |
 |---|---|---|
 | Printer TX (ESP32 → Printer RX) | GPIO 17 | Printer RX |
-| Printer RX (Printer TX → ESP32) | GPIO 18 | Printer TX |
-| TM1637 CLK | GPIO 7 | Display CLK |
-| TM1637 DIO | GPIO 8 | Display DIO |
-| Encoder CLK | GPIO 4 | EC11 CLK/A |
-| Encoder DT | GPIO 5 | EC11 DT/B |
-| Encoder SW (button) | GPIO 6 | EC11 SW |
+| Printer TX (Printer → ESP32) | **DO NOT CONNECT** — printer TX idles at 5V and will damage the 3.3V ESP32-S3 | — |
+| TM1637 CLK | GPIO 4 | Display CLK |
+| TM1637 DIO | GPIO 5 | Display DIO |
+| Encoder CLK (A) | GPIO 6 | KY-040 CLK/A |
+| Encoder DT (B) | GPIO 7 | KY-040 DT/B |
+| Encoder SW (button) | GPIO 8 | KY-040 SW |
+
+#### Power Path
+
+| From | To | Notes |
+|---|---|---|
+| 2S Li-ion Battery (+) | SPST Rocker Switch (in) | Switched battery positive |
+| SPST Rocker Switch (out) | Mini 360 Buck IN+ | Switched 7.4–8.4V input |
+| SPST Rocker Switch (out) | Printer VCC | Printer draws heavy current; powered directly from battery rail |
+| 2S Li-ion Battery (−) | Common GND | Battery negative |
+| Mini 360 Buck OUT+ | ESP32-S3 5V (VIN) | Regulated 5.0V |
+| Mini 360 Buck OUT− | Common GND | |
+| ESP32-S3 3V3 | TM1637 VCC | **3.3V only** — see caution below |
+| ESP32-S3 3V3 | KY-040 `+` (VCC) | **3.3V only** — see caution below |
+| ESP32-S3 GND | TM1637 GND | |
+| ESP32-S3 GND | KY-040 GND | |
+| ESP32-S3 GND | Printer GND | Signal ground only; printer power is from battery rail |
+
+> [!CAUTION]
+> Power the TM1637 and KY-040 from the ESP32-S3 **3V3 pin only**, not the 5V (VIN) pin. Both modules connect their signal lines directly to ESP32-S3 GPIOs. If the modules are powered at 5V their outputs will drive 5V logic into the 3.3V GPIO inputs and will damage the chip.
 
 > [!NOTE]
-> All encoder pins use internal pull-ups (`INPUT_PULLUP`). The printer serial uses `SERIAL_8N1` at 9600 baud.
+> All KY-040 encoder pins use `INPUT_PULLUP`. CLK and DT also have on-board 10kΩ pull-ups on the KY-040 module — the doubled pull-up is harmless. The printer serial uses `SERIAL_8N1` at 9600 baud.
+
 
 ---
 
@@ -81,7 +106,7 @@ Each turn, discard a basic land to activate Momir Vig's ability and get a token 
 
 - [PlatformIO](https://platformio.org/) (CLI or VS Code extension)
 - Python 3 + `curl` (for building the card database)
-- A USB connection to the ESP32-S3 DevKit
+- A USB-C cable connected to the **right-side USB-C port** on the ESP32-S3 DevKit (the CH343P UART bridge port, used for flashing and serial monitoring). The left-side native USB port is not used for this project.
 
 ### 1. Build the Card Database
 
@@ -169,7 +194,7 @@ momir-basic-printer/
 ├── src/
 │   ├── main.cpp           # Application entry point (setup/loop)
 │   ├── CardDb.h           # LittleFS + PSRAM database loader and random lookup
-│   ├── Encoder.h          # EC11 rotary encoder driver (Gray-code + debounce)
+│   ├── Encoder.h          # KY-040 rotary encoder driver (Gray-code + debounce)
 │   └── Printer.h          # Raw ESC/POS thermal printer driver
 ├── tools/
 │   ├── build_momir_bin.sh # Download Scryfall data and build momir.bin
@@ -197,7 +222,7 @@ Oracle text wrapped cleanly at
 ```
 
 - **Name + mana cost** are space-padded to fill the 32-character line width
-- **QR code** links to the card's Scryfall page (`https://scryfall.com/search?q=id%3A{uuid}`) and is centered using native ESC/POS `GS ( k` commands
+- **QR code** links directly to the card's Scryfall page (`https://scryfall.com/card/{uuid}`) and is centered using native ESC/POS `GS ( k` commands
 - **Type line** is centered
 - **Oracle text** is word-wrapped at 32 characters with blank lines between paragraphs; Unicode (em-dashes, smart quotes, bullets) is normalized to ASCII
 - **Power/Toughness** is right-aligned with spaces around the slash (e.g. `5 / 5`)
@@ -213,7 +238,7 @@ Mounts LittleFS, allocates the full `momir.bin` into 8MB Octal PSRAM via `ps_mal
 
 ### `src/Encoder.h`
 
-Reads the EC11 rotary encoder using a **4-state Gray-code state table** — reliable quadrature decoding with no debounce delays on the AB signal. The push-button uses a separate 50 ms timer-based debouncer. CMC is hard-clamped to `[0, 16]` via `constrain()`.
+Reads the KY-040 rotary encoder using a **4-state Gray-code state table** — reliable quadrature decoding with no debounce delays on the AB signal. The push-button uses a separate 50 ms timer-based debouncer. CMC is hard-clamped to `[0, 16]` via `constrain()`. The KY-040 module has on-board 10kΩ pull-ups on CLK and DT; the firmware also applies `INPUT_PULLUP` on all three pins — the doubled pull-up on CLK/DT is harmless. SW has no on-board pull-up on most KY-040 modules, so the firmware's `INPUT_PULLUP` on GPIO 8 is necessary.
 
 ### `src/Printer.h`
 
