@@ -36,7 +36,8 @@ public:
                   int minVal = 0, int maxVal = 16, uint32_t debouncems = 50)
         : _clkPin(clkPin), _dtPin(dtPin), _swPin(swPin),
           _minVal(minVal), _maxVal(maxVal), _debounceMs(debouncems),
-          _value(minVal), _lastEncoderState(0), _btnPressed(false),
+          _value(minVal), _lastEncoderState(0), _subSteps(0),
+          _btnPressed(false),
           _lastBtnRaw(HIGH), _lastDebounceTime(0)
     {
     }
@@ -87,9 +88,10 @@ public:
      */
     void setRange(int minVal, int maxVal)
     {
-        _minVal  = minVal;
-        _maxVal  = maxVal;
-        _value   = minVal;
+        _minVal   = minVal;
+        _maxVal   = maxVal;
+        _value    = minVal;
+        _subSteps = 0;
         // Re-capture encoder state to avoid a phantom step on the next poll.
         _lastEncoderState = _readAB();
     }
@@ -117,10 +119,24 @@ private:
 
         if (dir != 0)
         {
-            int next = _value + dir;
-            if (next > _maxVal) next = _minVal;  // wrap CW: max → min
-            else if (next < _minVal) next = _maxVal; // wrap CCW: min → max
-            _value = next;
+            // Accumulate sub-steps.  The KY-040 produces 4 Gray-code
+            // transitions per mechanical detent, so we count them and only
+            // advance the value once we have collected a full step (±4).
+            _subSteps += dir;
+            if (_subSteps >= 4)
+            {
+                _subSteps -= 4;
+                int next = _value + 1;
+                if (next > _maxVal) next = _minVal;
+                _value = next;
+            }
+            else if (_subSteps <= -4)
+            {
+                _subSteps += 4;
+                int next = _value - 1;
+                if (next < _minVal) next = _maxVal;
+                _value = next;
+            }
         }
     }
 
@@ -160,6 +176,7 @@ private:
 
     int _value;
     uint8_t _lastEncoderState;
+    int8_t  _subSteps;           // accumulated Gray-code quarter-steps (±4 = one detent)
     volatile bool _btnPressed;
 
     int _lastBtnRaw;

@@ -96,6 +96,11 @@ static void formatScryfallUrl(const uint8_t *uuid, char *buf, size_t bufLen)
  *
  *   C = a+d+e+f        = 0x39
  *   M = a+b+c+e+f      = 0x37  (outer frame: top + all four verticals)
+ *
+ * IMPORTANT: The avishorp TM1637Display library originally masked the pos
+ * argument with 0x03, aliasing positions 4–5 back to 0–1. That bug has been
+ * patched in the local copy of TM1637Display.cpp so a single 6-byte write works
+ * correctly across all digit positions.
  */
 void showCmc(int cmc)
 {
@@ -109,20 +114,24 @@ void showCmc(int cmc)
     segs[0] = 0x39; // C
     segs[1] = 0x37; // M
     segs[2] = 0x39; // C
-    segs[3] = 0x00; // blank spacer
+    // Addresses 3–5 map to physical positions right-to-left on this module:
+    //   addr 3 → rightmost digit (physical 5)
+    //   addr 4 → middle digit    (physical 4)
+    //   addr 5 → leftmost of right half (physical 3) — used as blank spacer
 
     if (cmc < 10)
     {
-        segs[4] = 0x00;           // blank
-        segs[5] = DIGITS[cmc];    // single digit at far right
+        segs[3] = DIGITS[cmc]; // units → rightmost
+        segs[4] = 0x00;        // blank
+        segs[5] = 0x00;        // blank spacer next to CMC
     }
     else
     {
-        segs[4] = DIGITS[cmc / 10]; // tens
-        segs[5] = DIGITS[cmc % 10]; // units
+        segs[3] = DIGITS[cmc % 10]; // units → rightmost
+        segs[4] = DIGITS[cmc / 10]; // tens  → middle
+        segs[5] = 0x00;             // blank spacer next to CMC
     }
 
-    // Write all 6 positions in one call — no digit is left showing stale data.
     display.setSegments(segs, 6, 0);
 }
 
@@ -143,9 +152,9 @@ void animatePrinting()
     // Alternate between "----" and "    " (blank) for a blink effect.
     if (_animFrame & 1)
     {
-        // All four digits showing a middle dash segment (0x40).
-        const uint8_t dashes[4] = {0x40, 0x40, 0x40, 0x40};
-        display.setSegments(dashes);
+        // All six digits showing a middle dash segment (0x40).
+        const uint8_t dashes[6] = {0x40, 0x40, 0x40, 0x40, 0x40, 0x40};
+        display.setSegments(dashes, 6, 0);
     }
     else
     {
@@ -181,8 +190,8 @@ void setup()
     {
         Serial.println("[MBP] FATAL: Database load failed.");
         display.clear();
-        // Show "Err " across all 6 digits.
-        const uint8_t err[6] = {0x79, 0x50, 0x50, 0x00, 0x00, 0x00};
+        // Show "Err" across left 3 digits (addr 2→phys 0, addr 1→phys 1, addr 0→phys 2).
+        const uint8_t err[6] = {0x50, 0x50, 0x79, 0x00, 0x00, 0x00};
         display.setSegments(err, 6, 0);
         while (true)
             delay(1000);
@@ -201,7 +210,7 @@ void setup()
     {
         // Should never happen with a valid momir.bin.
         Serial.println("[MBP] FATAL: No creatures found in database.");
-        const uint8_t err[6] = {0x79, 0x50, 0x50, 0x00, 0x00, 0x00};
+        const uint8_t err[6] = {0x50, 0x50, 0x79, 0x00, 0x00, 0x00};
         display.setSegments(err, 6, 0);
         while (true)
             delay(1000);
@@ -254,8 +263,9 @@ void loop()
                 // Safety net — should not be reachable because the encoder only
                 // navigates CMC values confirmed to have creatures at boot.
                 Serial.printf("[MBP] No cards for CMC %d (unexpected)\n", selectedCmc);
-                const uint8_t segs[6] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-                display.setSegments(segs, 6, 0);
+                display.clear();
+                const uint8_t blankRight[2] = {0x00, 0x00};
+                display.setSegments(blankRight, 2, 4);
                 delay(300);
                 showCmc(selectedCmc);
                 isPrinting = false;
@@ -278,10 +288,12 @@ void loop()
             formatScryfallUrl(card.uuid, scryfallUrl, sizeof(scryfallUrl));
             Serial.printf("[MBP] QR URL: %s\n", scryfallUrl);
 
-            // Show "PRNT" on the display while printing.
+            // Show "Prnt" on the display while printing.
+            // Physical mapping: addr 2→phys 0, addr 1→phys 1, addr 0→phys 2,
+            //                   addr 5→phys 3, addr 4→phys 4, addr 3→phys 5.
             // P=0x73, r=0x50, n=0x54, t=0x78
-            const uint8_t prntSeg[4] = {0x73, 0x50, 0x54, 0x78};
-            display.setSegments(prntSeg);
+            const uint8_t prntSeg[6] = {0x54, 0x50, 0x73, 0x00, 0x00, 0x78};
+            display.setSegments(prntSeg, 6, 0);
 
             printer.printCard(
                 card.name,

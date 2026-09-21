@@ -66,6 +66,11 @@ public:
                    const char *typeLine, const char *oracle,
                    const char *pt, const char *scryfallUrl = nullptr)
     {
+        // ── LEADING BLANK LINE ────────────────────────────────────────────
+        // Gives the print head a moment to settle and prevents the first line
+        // (name + mana) from being clipped against the tear edge.
+        _serial->println();
+
         // ── NAME + MANA COST ──────────────────────────────────────────────
         // Normal weight — matches physical print (no bold on name line).
         size_t nameLen = strlen(name);
