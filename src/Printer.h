@@ -101,6 +101,8 @@ public:
             }
         }
 
+        _serial->println();
+
         // ── QR CODE (centered, Scryfall link) ─────────────────────────────
         // No divider between name and QR — matches physical print.
         if (scryfallUrl != nullptr && strlen(scryfallUrl) > 0)
