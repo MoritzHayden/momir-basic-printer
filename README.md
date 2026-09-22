@@ -2,7 +2,9 @@
 
 Momir Basic Printer (MBP) is a self-contained handheld device powered by an **ESP32-S3** that prints a random Magic: The Gathering creature card on a 58mm thermal receipt printer for playing the [Momir Basic](https://magic.wizards.com/en/formats/momir-basic) format.
 
-Rotate a knob to select a CMC, press the button, and a receipt-style card prints instantly — complete with a Scryfall QR code.
+Rotate a knob to select a CMC, press the button, and a receipt-style card prints instantly - complete with a Scryfall QR code.
+
+If you are looking for the Raspberry Pi-based version, reference the [main](https://github.com/MoritzHayden/momir-basic-printer/tree/main) branch.
 
 ![Momir Vig, Simic Visionary](img/momir.jpg)
 
@@ -10,6 +12,10 @@ Rotate a knob to select a CMC, press the button, and a receipt-style card prints
 
 - [Momir Basic Rules](#momir-basic-rules)
 - [How It Works](#how-it-works)
+- [Examples](#examples)
+  - [Gameplay](#gameplay)
+  - [Single Card](#single-card)
+  - [Multiple Cards](#multiple-cards)
 - [Hardware](#hardware)
   - [Components](#components)
   - [Wiring](#wiring)
@@ -46,6 +52,22 @@ Each turn, discard a basic land to activate Momir Vig's ability and get a token 
 
 ---
 
+## Examples
+
+### Gameplay
+
+![Gameplay](img/gameplay.jpg)
+
+### Single Card
+
+![Single Card](img/single_card.jpg)
+
+### Multiple Cards
+
+![Multiple Cards](img/multiple_cards.jpg)
+
+---
+
 ## Hardware
 
 ### Components
@@ -60,6 +82,8 @@ Each turn, discard a basic land to activate Momir Vig's ability and get a token 
 | [Mini 360 Buck Converter](https://a.co/d/020VQw1T) | 7.8V → 5V for ESP32-S3 |
 | [2S 7.4V 3300mAh Li-ion Battery](https://a.co/d/07E4YvMv) | Power source |
 | [SPST Rocker Switch](https://a.co/d/004xDCoW) | Power toggle |
+| [Enclosure Body](stl/enclosure_body.stl) | 3D printed main housing ([source](https://www.printables.com/model/1735878-momir-basic-all-in-one-mtg-printer)) |
+| [Enclosure Lid](stl/enclosure_lid.stl) | 3D printed lid ([source](https://www.printables.com/model/1735878-momir-basic-all-in-one-mtg-printer)) |
 
 ### Wiring
 
