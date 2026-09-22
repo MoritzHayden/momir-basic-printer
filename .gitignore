@@ -1,3 +1,19 @@
+# ── PlatformIO ───────────────────────────────────────────────────────────────
+.pio/
+.pioenvs/
+.piolibdeps/
+*.elf
+*.map
+# data/momir.bin is intentionally tracked — it is the pre-built LittleFS dataset.
+# Regenerate it with: tools/build_momir_bin.sh
+# Intermediate download from build script:
+data/scryfall_oracle.jsonl
+
+# ── Arduino / ESP32 ──────────────────────────────────────────────────────────
+*.ino.elf
+*.ino.bin
+
+# ── Python ───────────────────────────────────────────────────────────────────
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -192,7 +208,7 @@ cython_debug/
 #  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
 #  and can be added to the global gitignore or merged into this file. However, if you prefer, 
 #  you could uncomment the following to ignore the entire vscode folder
-# .vscode/
+.vscode/
 
 # Ruff stuff:
 .ruff_cache/

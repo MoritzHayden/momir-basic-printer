@@ -2,6 +2,8 @@
 
 Momir Basic Printer (MBP) is a set of Python scripts designed to run headless on a Raspberry Pi connected to a thermal receipt printer for playing the [Momir Basic](https://magic.wizards.com/en/formats/momir-basic) MTG format.
 
+If you are looking for the ESP32-based version, reference the [esp32](https://github.com/MoritzHayden/momir-basic-printer/tree/esp32) branch.
+
 ## Table of Contents
 
 - [About](#about)
@@ -52,6 +54,8 @@ Each turn players discard a basic land to activate Momir Vig's ability and get a
 - [SHNITPWR 60W Universal Power Supply](https://a.co/d/0bKNzwey)
 - [LM2596 Buck Converter](https://a.co/d/070NjEDp)
 - [KeeYees 4 Channel IIC I2C Logic Level Converter](https://a.co/d/0ecOK7n6)
+- [Enclosure Body](stl/enclosure_body.stl) ([source](https://www.printables.com/model/1735878-momir-basic-all-in-one-mtg-printer))
+- [Enclosure Lid](stl/enclosure_lid.stl) ([source](https://www.printables.com/model/1735878-momir-basic-all-in-one-mtg-printer))
 
 ### Diagram
 
